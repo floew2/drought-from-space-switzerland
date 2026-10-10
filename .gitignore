@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Data never enters git. Real inputs cannot be published; synthetic inputs are
+# regenerated deterministically by `make demo`.
+/data/*
+!/data/README.md
+
+# Generated outputs. Figures meant for GitHub are copied to docs/figures/ on
+# purpose, not by accident.
+/output/*
+!/output/.gitkeep
+
+# Geodata, anywhere — a stray shapefile in the tree must not be committable.
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.gpkg
+*.tif
+*.tiff

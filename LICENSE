@@ -1,0 +1,32 @@
+MIT License
+
+Copyright (c) 2026 Fabian Löw
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+Data attribution. This licence covers the code only.
+
+* Contains modified Copernicus Sentinel data (2019-2026), processed in Google
+  Earth Engine.
+* Precipitation and temperature: MeteoSchweiz Open Data, SwissMetNet
+  (CC BY 4.0). Quelle: MeteoSchweiz.
+* Field geometries and land-use codes: Nutzungsflächen, Kanton St. Gallen.
+  These are NOT redistributed in this repository, in any form. Everything the
+  demo runs on is synthetic (see src/drought/synthetic/).

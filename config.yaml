@@ -1,0 +1,230 @@
+# =============================================================================
+# Drought 2026 — project configuration
+#
+# Everything that was previously scattered across notebook cell 1 lives here.
+# One source, so a figure can always be traced to the settings that made it:
+# `drought.config.provenance()` dumps this alongside any result.
+# =============================================================================
+
+project:
+  current_year: 2026
+  # Baseline for Sentinel-2 work. Contains the 2022 drought summer, so any
+  # 2026 anomaly measured against it is conservative — a floor, not a ceiling.
+  baseline_years: [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+
+paths:
+  gee: data/gee            # GEE exports, one subfolder per site
+  labels: data/labels      # hand-labelled reference data, one file per site
+  masks: data/masks        # grassland mask GeoTIFF (uploaded to GEE)
+  parcels: data/nutzungen  # yearly Nutzungsflaechen shapefiles, searched
+                           # RECURSIVELY (each year often sits in its own folder)
+  station: data/station    # MeteoSwiss daily series, if cached locally
+  figures: output/figures  # one subfolder per site
+  tables: output/tables
+
+sites:
+  linthebene:
+    label: Linthebene
+    note: intensive grassland on drained peat
+    bbox_wgs84: [8.90, 47.16, 9.12, 47.30]
+  rheintal:
+    label: St. Galler Rheintal
+    note: valley-floor grassland
+    bbox_wgs84: [9.50, 47.32, 9.72, 47.50]
+  alpstein:
+    label: Alpstein / Churfirsten
+    note: summering area; alpine cloud leaves too few gap-free baseline years
+    bbox_wgs84: [9.25, 47.15, 9.48, 47.30]
+    stratum: summering
+
+# --- land use ---------------------------------------------------------------
+# Verified against the official LNF code list. Two lists, not four: the split
+# that matters is mown vs grazed, because grazing produces no cut signal.
+# Whether a code is an LN or a Soemmerung code is not a distinction the analysis
+# acts on — filter on all of them and let the data decide.
+landuse:
+  mown:   [611, 612, 613, 634, 635, 650, 694, 621, 622, 623, 935]
+  grazed: [616, 617, 618, 660, 693, 625, 930, 933]
+  # 4-6 cuts, first early May, no legal restriction on the cutting date
+  intensive: [613, 650]
+  # ~2 cuts; in the valley and hill zones may NOT be cut before 15 June.
+  # That legal floor is free ground truth — see evaluate.false_positive_rate.
+  extensive: [611, 612, 634, 635, 693, 694]
+  earliest_legal_cut_doy: 166
+
+# --- mask -------------------------------------------------------------------
+# Rebuilt on a polygon-first design. The previous version applied persistence
+# per CELL, which meant the sample was a shifting set of cells belonging to no
+# defined set of fields — and it zeroed the PSF halo outside parcels, producing
+# an observed area SMALLER than the polygon area at zero threshold, which is
+# physically impossible.
+#
+# Now:
+#   1. a master parcel set is selected from the polygons — grassland in every
+#      year, AND the same management category in every year
+#   2. the four categories are defined by SQL within that master set
+#   3. PSF purity is computed per category from those polygons
+#
+# Persistence is a property of the PARCEL SET and is never multiplied into the
+# raster. The halo is therefore intact, and purity > 0 always covers more area
+# than the polygons, as it must.
+mask:
+  res: 10                # 10 m, matching the Sentinel-2 grid. Was 20 m, which
+                         # gave a 0.44 ha parcel only 11 cells; at 10 m it has
+                         # 44, so edge effects are resolved rather than assumed.
+  # SLIVER FLOOR, not a size filter. Polygons below 0.05 ha are cadastral
+  # offcuts (digitising leftovers, boundary slivers) that would corrupt the
+  # area-overlap matching. Whether a field is big enough for Sentinel-2 is NOT
+  # decided here: PSF purity decides that — a field too small for the sensor
+  # yields no cell above the purity threshold and drops out on its own.
+  # (An earlier 0.25 ha filter did the same job twice, and because it also ran
+  # on past deliveries it dropped stable fields whose redrawn outline dipped
+  # below 0.25 ha in one year. Set 2500 here to reproduce that behaviour.)
+  sliver_floor_m2: 500   # 0.05 ha
+  subpixel: 4            # sub-cells per side: 4 -> 2.5 m within a 10 m cell
+
+  # Which years a parcel must hold its category in. "all" = every available
+  # year. The share of parcels excluded by this is reported when building.
+  # A current parcel counts as holding a category in an earlier year if at
+  # least this share of its area falls inside that year's dissolved grassland
+  # of that category. OVERLAP, not identity: outlines are redrawn, split and
+  # merged between deliveries, so nothing that tries to follow an individual
+  # parcel through the years survives.
+  min_overlap: 0.8
+  # How many of the available years a parcel must have held its category in.
+  # 0 = all of them. Set it from mask.category_history(), not by guessing.
+  min_years_same: 0
+  # Simplify before the overlay. MEASURED AND OFF: on 60,000 300-vertex
+  # polygons it took 38 s without and 69 s at 1 m — simplify costs more than
+  # the intersection it saves.
+  simplify_m: 0.0
+
+  # PSF. A sensor pixel does not see a sharp box: the system point-spread
+  # function draws signal from beyond the nominal footprint.
+  # The system response is the DETECTOR FOOTPRINT (a box one pixel wide, whose
+  # own MTF at Nyquist is sinc(1/2) = 0.637) convolved with a Gaussian OPTICAL
+  # term. Only the remainder of the system MTF belongs to the optics:
+  #     MTF_optics = 0.25 / 0.637 = 0.393
+  #     sigma_optics = sqrt(-ln(MTF_optics) / (2 pi^2 f_N^2)) = 4.35 m
+  # The combined response has FWHM 12.7 m. A bare Gaussian with sigma 4.35 m
+  # would be only 10.2 m wide — never state the two as one Gaussian.
+  # Instrument response only: L2A resampling and the LV95/UTM grid offset widen
+  # it further.
+  psf_mtf_nyquist: 0.25    # ESA MSI system MTF at Nyquist — CITATION PENDING
+  # box_gauss  detector box (x) Gaussian optics, as above. The settled model.
+  # gauss      one Gaussian fitted to the whole system MTF (sigma 5.30 m),
+  #            read as a 2x2 sub-cell mean around the cell centre (effective
+  #            FWHM ~12.95 m). The implementation that built the mask behind
+  #            the published area numbers; kept so the two can be compared.
+  psf_model: box_gauss
+  # Output grid is clipped to this LV95 window (x0, y0, x1, y1). null = the
+  # full extent of the parcel data.
+  clip_bbox_lv95: [2708100, 1221140, 2775020, 1265540]
+
+  purity_min: 0.9        # threshold applied in GEE, not baked into the file.
+                         # On the previous 20 m mask the NDMI anomaly varied by
+                         # under 1% of its own size across the full range
+                         # 0.05-0.95, at two independent sites. NOT YET RE-RUN
+                         # on the 10 m mask — do not quote it for 10 m.
+
+# --- cleaning ---------------------------------------------------------------
+clean:
+  min_parcel_coverage: 0.6   # of that parcel's own best observation
+  # Cloud Score+ at cs_cdf >= 0.50 lets thin haze through. Its fingerprint is
+  # wavelength-ordered: scattering inflates the short bands, so RED is hit hard,
+  # RED-EDGE less, SWIR almost not at all. Detect it by the DISAGREEMENT between
+  # NDVI and NDMI rather than by an absolute threshold.
+  haze_window: 5
+  haze_ndvi_z: -1.5
+  haze_gap: 1.5
+
+# --- cut detection ----------------------------------------------------------
+# FROZEN. Tuned on 42 hand-labelled parcel-years, then validated on all 65:
+# F1 0.911 -> 0.912, so it did not overfit. Do not re-tune without a reason;
+# re-tuning on the full label set forfeits that out-of-sample property.
+detect:
+  index: NDMI          # NOT NDVI. Over dense grassland NDVI saturates near 0.90
+  confirm: NDVI        # and falls only ~0.18 at a cut, while NDMI falls
+                       # 0.25-0.40. NDMI is also far less sensitive to haze.
+  season: [85, 290]
+  truncate_to_current: true   # the current year is only observed to date;
+                              # comparing full baseline seasons against it would
+                              # guarantee "fewer late cuts" by construction
+  min_drop_abs: 0.20      # plateau: 0.16 -> F1 0.873, 0.24 -> 0.850
+  min_drop_rate: 0.010    # per day. A cut drops ~0.25 in ~5 days (0.05/day);
+                          # drought senescence ~0.30 over 60 days (0.005/day)
+  drop_fraction: 0.35     # of the parcel-year amplitude
+  lookback_days: 26       # window to find the pre-cut peak
+  rise_window: 30         # a cut inside a data gap has no visible falling limb,
+  min_rise_rate: 0.005    # but its regrowth is still there
+  merge_days: 21          # agronomic minimum interval between cuts
+  persist_frac: 0.15
+  persist_always: false   # tested: marginal, and removes a rule
+  min_concentration: 0.0  # tested: HURTS (F1 0.872 -> 0.894 with it off).
+                          # Rejects real cuts whose drop spans two observations.
+  require_followup: 20    # tested: keep. Off costs 3 false positives.
+  confirm_frac: 0.3       # the confirm index must fall in proportion
+  amp_window: 0           # days. 0 = threshold scaled to the WHOLE parcel-year
+                          # amplitude (current behaviour). If > 0, scale it to a
+                          # LOCAL window around the candidate instead.
+                          # Hypothesis for missed late cuts: by August the
+                          # canopy is already low, so a real cut produces a
+                          # smaller absolute drop than one in May — and a
+                          # threshold set by the season-wide amplitude is then
+                          # too high to catch it. A local amplitude adapts.
+                          # TESTED on synthetic data where late cuts genuinely
+                          # fade: no effect at all (late recall 0.590 at every
+                          # window). min_drop_abs was the binding constraint
+                          # instead. Left in place, off, so it can be re-tested
+                          # against real labels before being discarded — the
+                          # synthetic fade may not match how real ones behave.
+
+# Alternative method, kept as a record of a negative result: a penalised
+# piecewise-linear changepoint fit scored F1 0.871 against the heuristic's
+# 0.911 on the same labels, over-segmenting (32 false positives against 12).
+changepoint:
+  penalty_k: 2.0
+  min_seg_days: 21
+  min_jump: 0.10
+
+# --- analysis ---------------------------------------------------------------
+analysis:
+  # Management systems are kept SEPARATE in the trajectory: intensive (4-6
+  # cuts) and extensive (~2 cuts) are different systems, and pooling them
+  # averages the two. true restores the old pooled "permanent grassland" curve.
+  merge_regimes: false
+  late_split_doy: 190
+  integration_window: [121, 273]
+  min_window_coverage: 0.7
+  min_obs_per_year: 8
+  max_gap_days: 30
+  smooth_days: 15
+  min_coverage: 0.8     # share of the site mask that must be clear
+
+evaluate:
+  match_tolerance_days: 12
+
+# --- precipitation ----------------------------------------------------------
+precip:
+  station_name: St. Gallen
+  baseline: [1991, 2020]
+  include_water_balance: true   # P - ET0 (Hargreaves). An index of atmospheric
+                                # demand against supply, NOT a soil water balance
+
+# --- synthetic data -----------------------------------------------------------
+# The real inputs cannot be published, so `make demo` runs the whole pipeline
+# on synthetic data calibrated to the real distributions (see
+# drought/synthetic/targets.py for every target and where it came from).
+# Activating this profile redirects EVERY path below, so a synthetic file can
+# never land beside a real one, and stamps every saved figure as synthetic.
+synthetic:
+  seed: 2026
+  scale: 0.125             # share of the real parcel count to generate
+  paths:
+    gee: data/synthetic/gee
+    labels: data/synthetic/labels
+    masks: data/synthetic/masks
+    parcels: data/synthetic/nutzungen
+    station: data/synthetic/station
+    figures: output/synthetic/figures
+    tables: output/synthetic/tables
