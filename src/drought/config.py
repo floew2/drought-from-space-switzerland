@@ -12,6 +12,8 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import os as _os
+import sys as _sys
+import warnings as _warnings
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -84,6 +86,75 @@ def activate(profile: str = "real") -> None:
 def active_profile() -> str:
     """The profile currently in force: "real" or "synthetic"."""
     return _PROFILE
+
+
+# Modules that copy settings into module-level constants when first imported.
+# An override applied after one of them is loaded would never reach it — the
+# setting would look changed and change nothing, which is how a stale
+# notebook cell once produced a confidently wrong conclusion. So it is refused.
+_READ_AT_IMPORT = ("drought.mask.settings", "drought.trajectory", "drought.precip")
+
+
+def _refuse_if_read(action: str) -> None:
+    loaded = [m for m in _READ_AT_IMPORT if m in _sys.modules]
+    if loaded:
+        raise RuntimeError(
+            f"cannot {action}: {', '.join(loaded)} already read the configuration "
+            "when imported, so the change would not reach it. Change config.yaml, "
+            "or apply overrides before importing the analysis modules (the "
+            "`drought` command does this).")
+
+
+def use_config(path: str | Path) -> None:
+    """Replace the loaded configuration with another YAML file, in place.
+
+    Args:
+        path: The YAML file to load instead of config.yaml.
+
+    Raises:
+        RuntimeError: If an analysis module has already read the configuration.
+    """
+    global _REAL_PATHS, _PROFILE
+    _refuse_if_read(f"load {path}")
+    new = load(path)
+    CFG.__dict__.clear()
+    CFG.__dict__.update(vars(new))
+    _REAL_PATHS = Config(CFG.paths.to_dict())
+    _PROFILE = "real"
+
+
+def override(dotted: str, value) -> None:
+    """Set one existing setting, e.g. override("mask.purity_min", 0.8).
+
+    Only existing keys can be set, so a typo fails instead of adding a setting
+    nothing reads. Overriding the frozen cut-detector configuration is allowed
+    but warned about: its validated F1 holds only for the frozen values.
+
+    Args:
+        dotted: Dotted key as in config.yaml.
+        value: New value, already typed.
+
+    Raises:
+        KeyError: If the key does not exist.
+        RuntimeError: If an analysis module has already read the configuration.
+    """
+    _refuse_if_read(f"override {dotted}")
+    *parents, leaf = dotted.split(".")
+    node = CFG
+    for i, part in enumerate(parents):
+        if not isinstance(getattr(node, part, None), Config):
+            raise KeyError(f"no section {'.'.join(parents[:i + 1])!r} in the configuration")
+        node = getattr(node, part)
+    if not hasattr(node, leaf):
+        known = ", ".join(sorted(vars(node)))
+        raise KeyError(f"no setting {dotted!r}. Known in this section: {known}")
+    if isinstance(getattr(node, leaf), Config):
+        raise KeyError(f"{dotted!r} is a section, not a setting")
+    if parents and parents[0] == "detect":
+        _warnings.warn(f"{dotted} overridden: the cut detector configuration is frozen, "
+                       "and its validated scores do not apply to other values",
+                       stacklevel=2)
+    setattr(node, leaf, value)
 
 
 if _os.environ.get("DROUGHT_PROFILE"):

@@ -11,29 +11,28 @@ Or the convenience surface:
     df = dr.load_site("linthebene")
 """
 
-from . import (
-    changepoint,
-    clean,
-    config,
-    detect,
-    evaluate,
-    figures,
-    io,
-    labelling,
-    labels,
-    mask,
-    mask_figures,
-    metrics,
-    precip,
-    trajectory,
-)
-from .config import CFG, available, figures_dir, provenance, write_provenance
+import importlib as _importlib
 
-__all__ = ["CFG", "available", "figures_dir", "provenance", "write_provenance",
-           "changepoint", "clean", "config", "detect", "evaluate", "figures",
-           "io", "labels", "labelling", "mask", "mask_figures", "metrics", "precip",
-           "trajectory",
-           "load_site"]
+_SUBMODULES = ("changepoint", "clean", "cli", "config", "demo", "detect", "evaluate",
+               "figures", "gallery", "io", "labelling", "labels", "mask",
+               "mask_figures", "metrics", "precip", "synthetic", "trajectory")
+_FROM_CONFIG = ("CFG", "available", "figures_dir", "provenance", "write_provenance")
+
+__all__ = [*_FROM_CONFIG, *_SUBMODULES, "load_site"]
+
+
+def __getattr__(name: str):
+    """Import submodules on first use.
+
+    Lazy on purpose: some modules copy settings into constants when imported,
+    so `import drought` must not import them before the `drought` command has
+    applied its overrides.
+    """
+    if name in _SUBMODULES:
+        return _importlib.import_module(f".{name}", __name__)
+    if name in _FROM_CONFIG:
+        return getattr(_importlib.import_module(".config", __name__), name)
+    raise AttributeError(f"module 'drought' has no attribute {name!r}")
 
 
 def load_site(site: str, verbose: bool = True):

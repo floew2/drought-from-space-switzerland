@@ -472,9 +472,8 @@ def _find_csv(site=None):
         cands += sorted(gee_dir(site).glob("*trajectory*.csv"))
     cands += sorted((ROOT / CFG.paths.gee).glob("*trajectory*.csv"))
     if not cands:
-        raise FileNotFoundError(
-            f"no *trajectory*.csv in {gee_dir(site) if site else ''} or "
-            f"{ROOT / CFG.paths.gee}")
+        where = f"{gee_dir(site)} or {ROOT / CFG.paths.gee}" if site else str(ROOT / CFG.paths.gee)
+        raise FileNotFoundError(f"no *trajectory*.csv in {where}")
     return cands[0]
 
 

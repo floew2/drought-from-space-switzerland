@@ -27,8 +27,21 @@ not free: **~40,000 EECU-seconds per site-year** for the per-parcel extraction.
 ## 0. Setup
 
 ```bash
-make install        # pip install -e ".[dev]"
-make demo           # the whole pipeline on synthetic data -> output/synthetic/
+make install        # pip install -e ".[dev]"   (with uv: uv sync --extra dev)
+drought demo        # the whole pipeline on synthetic data -> output/synthetic/
+drought --help      # every command
+```
+
+For the real data, the same commands run without `--synthetic`, against the
+paths in `config.yaml`:
+
+```bash
+drought mask build                    # needs data/nutzungen/
+drought mask check
+drought trajectory plot --site linthebene
+drought precip --download             # or reads data/station/ if cached
+drought cuts score --site linthebene  # needs data/gee/<site>/ and data/labels/
+drought run-all                       # every step that has its input; reports the rest
 ```
 
 The real inputs (cantonal parcel data and everything derived from it) are not

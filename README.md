@@ -70,11 +70,22 @@ in brief:
 
 ## Running it
 
+Everything runs through one command, `drought` (see `drought --help`):
+
 | | |
 |---|---|
-| `make demo` | Mask build, area accounting, trajectories, precipitation, cut detection and scoring, all on synthetic data. Exits non-zero if a calibrated value misses its target or a physical invariant fails. |
-| `make test` | Unit tests: PSF derivation, tiled = single-pass purity, synthetic calibration, profile isolation. |
-| `make gallery` | Refreshes the committed figures in `docs/figures/`. |
+| `drought demo` | Mask build, area accounting, trajectories, precipitation, cut detection and scoring, all on synthetic data. Exits non-zero if a calibrated value misses its target or a physical invariant fails. `make demo` runs the same. |
+| `drought --synthetic mask check` | Area cost of each purity threshold, and the PSF-model comparison. |
+| `drought --synthetic cuts score --site linthebene` | The frozen detector and the changepoint alternative, scored against the labels. |
+| `drought config show mask` | The effective configuration, after all overrides. |
+| `make test` | Unit tests: PSF derivation and the response width the code applies, tiled = single-pass purity, the master-set funnel, CLI precedence, synthetic calibration. |
+
+Settings come from `config.yaml`. Precedence, lowest to highest:
+`config.yaml` < `--config FILE` < `--synthetic` < `--set KEY=VALUE`. For
+example, `drought --synthetic --set mask.psf_model=gauss mask build` rebuilds
+the mask with the old response model. Only existing keys are accepted. An
+override that would arrive after a module has already read the setting is
+refused rather than silently ignored.
 
 The synthetic inputs are generated deterministically by `drought.synthetic`.
 They match the real data's schemas, its parcel-size and shape distributions,
