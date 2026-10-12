@@ -127,9 +127,15 @@ def test_committed_gee_scripts_match_the_renderer():
 
 
 def test_committed_scripts_carry_no_project_id():
+    """Every Earth Engine project named in a committed script is the placeholder,
+    and no asset path is written out by hand."""
+    import re
+
     for script in gee.SCRIPTS:
         text = (gee.GEE_DIR / script).read_text()
-        assert "YOUR_EE_PROJECT" not in text
+        assert set(re.findall(r"var PROJECT = '([^']*)'", text.replace('"', "'"))) <= {
+            gee.PLACEHOLDER}
+        assert re.findall(r"projects/[A-Za-z0-9_-]+/assets", text) == []
         assert gee.PLACEHOLDER in text or "ASSETS" not in gee.SCRIPTS[script]
 
 
