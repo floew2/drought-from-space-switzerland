@@ -11,7 +11,8 @@ The input data cannot be published; the commands below run the same pipeline on
 synthetic data.*
 
 ```bash
-git clone <this repository> && cd drought-from-space
+git clone https://github.com/floew2/drought-from-space-switzerland.git
+cd drought-from-space-switzerland
 make install        # pip install -e ".[dev]"
 make demo           # whole pipeline on synthetic data, ~80 s -> output/synthetic/
 ```
