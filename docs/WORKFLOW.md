@@ -75,7 +75,31 @@ output/tables/         provenance JSON beside every result
 
 ## 1. GEE scripts — which is which
 
-Paste each into the [Earth Engine Code Editor](https://code.earthengine.google.com/).
+Don't paste the files in `gee/` directly. Their shared settings (purity and
+Cloud Score+ thresholds, mask band order, land-use codes, years) are generated
+from `config.yaml`, and the Earth Engine project is a placeholder. Render a
+paste-ready copy first:
+
+```bash
+drought --set gee.project=<your-ee-project> gee render --out output/gee
+```
+
+Paste from `output/gee/` into the [Earth Engine Code Editor](https://code.earthengine.google.com/).
+Each copy carries a `CONFIG_HASH` (settings + local mask), and the data
+exports write it into their file names. After downloading an export,
+register it before using it:
+
+```bash
+drought provenance register data/gee/grassland_trajectory_multi_p90_cfg<hash>.csv --kind trajectory
+drought provenance register data/gee/linthebene/cuts_linthebene_2026_cfg<hash>.csv --kind cuts
+```
+
+Registration refuses an export that cannot be current: a hash from other
+settings or another mask, the wrong management categories, missing years, or
+a `.geo` column. Every analysis step then refuses an unregistered or stale
+file and names the reason (`provenance.require` in `config.yaml`). To change a
+shared setting, edit `config.yaml` and run `drought gee render`; CI fails if
+the committed scripts do not match.
 
 ### For screenshots only — nothing to download
 

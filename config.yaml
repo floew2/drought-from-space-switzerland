@@ -193,6 +193,8 @@ analysis:
   # cuts) and extensive (~2 cuts) are different systems, and pooling them
   # averages the two. true restores the old pooled "permanent grassland" curve.
   merge_regimes: false
+  # The management systems the trajectory export and the analysis use.
+  regimes: [intensive, extensive]
   late_split_doy: 190
   integration_window: [121, 273]
   min_window_coverage: 0.7
@@ -228,3 +230,32 @@ synthetic:
     station: data/synthetic/station
     figures: output/synthetic/figures
     tables: output/synthetic/tables
+
+# --- Earth Engine ------------------------------------------------------------
+# `drought gee render` writes these into a generated block at the top of each
+# script in gee/, so a threshold has one value in one place. CI checks that the
+# committed scripts match what the renderer produces.
+gee:
+  # The Earth Engine project holding the assets. Empty on purpose: the committed
+  # scripts carry a placeholder. For a copy to paste into the Code Editor:
+  #   drought --set gee.project=<your-project> gee render --out output/gee
+  project: null
+  assets:
+    mask: grassland_mask_sg              # uploaded from data/masks/grassland_mask_sg.tif
+    parcels: nutzungsflaechen_           # + year, e.g. nutzungsflaechen_2025
+  # Cloud Score+ cs_cdf threshold. OPEN: the scripts disagree, and these are
+  # their current values, rendered unchanged so the 2026 re-run is not affected.
+  # The cut extraction chose 0.50 for more dates in cloudy baseline years and
+  # filters residual haze downstream; the other three use 0.60.
+  clear_threshold:
+    gee_cuts_extract: 0.50
+    gee_purity_sensitivity: 0.50
+    gee_grassland_trajectory: 0.60
+    gee_grassland_map: 0.60
+    gee_s2_hotspots: 0.60
+
+# --- provenance --------------------------------------------------------------
+provenance:
+  # Refuse to load an input whose provenance record is missing or disagrees
+  # with the current configuration or mask. false = warn only.
+  require: true

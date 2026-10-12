@@ -491,6 +491,8 @@ def plot(site=None, path=None, index=None, regimes=None, verbose=True):
     src = path or _find_csv(site)
     if verbose:
         print(f"reading {src}")
+    from .provenance import verify
+    verify(src, "trajectory")            # refuses a stale export, naming why
     df = load(str(src), verbose=verbose)   # this module's load() cleans inline
 
     sites = [site] if site else sorted(df.site.unique())

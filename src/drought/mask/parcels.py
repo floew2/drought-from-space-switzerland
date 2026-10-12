@@ -287,7 +287,8 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
             0.25 ha behaviour.
 
     Returns:
-        The master parcel set, EPSG:2056, with `_code` and `_cat`.
+        The master parcel set, EPSG:2056, with `_code` and `_cat`. The funnel
+        (counts dropped and kept, per category) is in `.attrs["funnel"]`.
     """
 
     import time as _time
@@ -342,10 +343,22 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
 
     out = cur[keep].drop(columns=["_cat"], errors="ignore").copy()
     out["_cat"] = cur.loc[keep, "_cat"]
+    lost_grass = int(((n_grass < min_years) & ~grandfathered).sum())
+    lost_cat = int(((n_grass >= min_years) & (n_same < min_years) & ~grandfathered).sum())
+    held_all = int(((n_same >= len(years)) & ~grandfathered).sum())
+    out.attrs["funnel"] = {
+        "year": int(cur_year), "grassland": int(n0), "sliver_floor_m2": float(floor),
+        "dropped_not_grassland": lost_grass, "dropped_changed_category": lost_cat,
+        "exempt": int(grandfathered.sum()), "remain": len(out),
+        "remain_share": round(len(out) / max(n0, 1), 4),
+        "remain_ha": round(float(out.geometry.area.sum() / 1e4), 1),
+        "held_category_all_years_share": round(held_all / max(n0, 1), 4),
+        "per_category": {n: {"parcels": int(out["_code"].isin(c).sum()),
+                             "ha": round(float(out[out["_code"].isin(c)].geometry.area.sum()
+                                               / 1e4), 1)}
+                         for n, c in GROUPS.items()},
+    }
     if verbose:
-        lost_grass = int(((n_grass < min_years) & ~grandfathered).sum())
-        lost_cat = int(((n_grass >= min_years) & (n_same < min_years)
-                        & ~grandfathered).sum())
         print(f"\n  MASTER PARCEL SET ({cur_year})")
         print(f"    rule: held its category in >= {min_years} of {len(years)} "
               f"years,\n          matched by >= {min_overlap:.0%} area overlap")

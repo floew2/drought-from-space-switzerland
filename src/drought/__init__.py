@@ -14,9 +14,12 @@ Or the convenience surface:
 import importlib as _importlib
 
 _SUBMODULES = ("changepoint", "clean", "cli", "config", "demo", "detect", "evaluate",
-               "figures", "gallery", "io", "labelling", "labels", "mask",
-               "mask_figures", "metrics", "precip", "synthetic", "trajectory")
-_FROM_CONFIG = ("CFG", "available", "figures_dir", "provenance", "write_provenance")
+               "figures", "gallery", "gee", "io", "labelling", "labels", "mask",
+               "mask_figures", "metrics", "precip", "provenance", "results", "synthetic",
+               "trajectory")
+# config.provenance() (settings + timestamp) is reached as drought.config.provenance;
+# drought.provenance is the module that records and verifies files.
+_FROM_CONFIG = ("CFG", "available", "figures_dir", "write_provenance")
 
 __all__ = [*_FROM_CONFIG, *_SUBMODULES, "load_site"]
 

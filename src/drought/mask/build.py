@@ -19,7 +19,8 @@ from .parcels import master_parcels
 from .purity import psf_caption, psf_params, purity_psf
 from .settings import CLIP_BBOX_LV95, CRS, GROUPS, PURITY_MIN, RES, SUBPIXEL
 
-__all__ = ["area_table", "build_mask", "main", "output_grid", "psf_model_check"]
+__all__ = ["area_table", "build_mask", "main", "output_grid", "psf_model_check",
+           "verify_mask"]
 
 
 def output_grid(master: gpd.GeoDataFrame, verbose: bool = True) -> tuple[tuple, tuple]:
@@ -135,6 +136,13 @@ def build_mask(shp_dir: str | Path | None = None,
 
     out_tif = Path(out_tif) if out_tif else mask_path()
     write_raster(bands, grid, (height, width), out_tif)
+    from ..provenance import record, write_sidecar
+    from .parcels import _year_files
+    deliveries = {str(y): _sha_short(f) for y, f in _year_files(shp_dir).items()}
+    write_sidecar(out_tif, record("mask", out_tif, {
+        "deliveries_sha256": deliveries, "bands": [n for _, n in bands],
+        "parcels": {n: int(master["_code"].isin(c).sum()) for n, c in GROUPS.items()},
+        "master_parcels": len(master)}))
     print(f"\n  wrote {out_tif} ({out_tif.stat().st_size / 1e6:.1f} MB)")
     print("  band order: " + ", ".join(f"b{i} {n}"
                                        for i, (_, n) in enumerate(bands, 1)))
@@ -146,6 +154,24 @@ def build_mask(shp_dir: str | Path | None = None,
 
 
 main = build_mask        # the name the notebook and older docs use
+
+
+def _sha_short(path) -> str:
+    import hashlib
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
+
+
+def verify_mask() -> dict:
+    """Refuse a mask built under other settings than the current ones.
+
+    Returns:
+        The mask's provenance record.
+
+    Raises:
+        drought.provenance.ProvenanceError: Naming the setting that differs.
+    """
+    from ..provenance import verify
+    return verify(mask_path(), "mask")
 
 
 def area_table(master: gpd.GeoDataFrame | None = None, site: str | None = None,
@@ -174,6 +200,7 @@ def area_table(master: gpd.GeoDataFrame | None = None, site: str | None = None,
 
     if master is None:
         master = master_parcels(verbose=False)
+    verify_mask()
     with rasterio.open(mask_path()) as ds:
         rb = ds.bounds
         if site:

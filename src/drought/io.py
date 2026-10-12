@@ -87,7 +87,9 @@ def load_cuts(site: str, years=None, verbose: bool = True) -> pd.DataFrame:
             f"no cuts_*.csv in {gee_dir(site)} — put the GEE exports there")
 
     frames, no_count = [], False
+    from .provenance import verify
     for f in files:
+        verify(f, "cuts")                 # refuses a stale export, naming why
         d = pd.read_csv(f)
         d.columns = [c.strip() for c in d.columns]
         if _is_wide(d):

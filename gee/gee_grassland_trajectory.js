@@ -20,6 +20,21 @@
 // ----------------------------------------------------------------------------
 // 1. Config
 // ----------------------------------------------------------------------------
+// >>> drought gee render: generated from config.yaml. Do not edit by hand —
+// change config.yaml and run `drought gee render`.
+// Paste-ready copy: drought --set gee.project=<project> gee render --out output/gee
+var PROJECT = "YOUR_EE_PROJECT";   // Earth Engine project with the assets
+var ASSETS = 'projects/' + PROJECT + '/assets/';
+var MASK_ASSET = ASSETS + "grassland_mask_sg";   // uploaded from build_mask()'s GeoTIFF
+var PARCEL_PREFIX = ASSETS + "nutzungsflaechen_";   // + year
+var CONFIG_HASH = "bdedabe82ea4";   // settings + mask this copy was rendered with; goes into export names
+var PURITY_MIN = 0.9;   // mask.purity_min
+var CLEAR_THRESHOLD = 0.6;   // Cloud Score+ cs_cdf, gee.clear_threshold
+var MASK_BANDS = ["mown", "grazed", "intensive", "extensive"];   // band order of the mask raster, as written by build_mask()
+var REGIMES = ["intensive", "extensive"];   // analysis.regimes
+var YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];   // project.baseline_years + current_year
+// <<< end of generated block
+
 var SITES = {
   rheintal: {
     name: 'St. Galler Rheintal',
@@ -47,7 +62,7 @@ var ACTIVE_SITES = ['rheintal', 'linthebene', 'alpstein'];
 // years. If this is cheap, the full run is roughly 12x it.
 var SMOKE_TEST = false;   // smoke test passed at 338 EECU-s; full run ~4,000
 
-var YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+// YEARS: rendered from config.yaml (baseline + current year).
 
 if (SMOKE_TEST) {
   ACTIVE_SITES = ['rheintal'];
@@ -58,18 +73,18 @@ if (SMOKE_TEST) {
 // GeoTIFF band descriptions are not reliably carried into GEE, so the bands are
 // renamed explicitly here BY POSITION. Order must match the writer:
 //   b1 mown | b2 grazed | b3 intensive | b4 extensive
-var MASK_ASSET = 'projects/YOUR_EE_PROJECT/assets/grassland_mask_sg';
+// MASK_ASSET: rendered from config.yaml.
 // Band order must match what drought.mask.build_mask() printed — GEE names them b1..bN, so
 // they are renamed BY POSITION. Do not reorder.
 // Four float bands of PSF-weighted purity 0-1, on the 10 m Sentinel grid.
 // Persistence is NOT in the raster — it is in the parcel selection that built
 // the mask (grassland in every year AND the same management category), so the
 // bands carry only purity and the sensor halo is intact.
-var MASK_BANDS = ['mown', 'grazed', 'intensive', 'extensive'];
+// MASK_BANDS: rendered (the band order build_mask() writes).
 
 // Threshold here, not in the mask: sweeping this costs one extraction, not a
-// rebuild and re-upload. Measured: the NDMI anomaly varies by 0.5% of its own
-// size across the full range 0.05-0.95, at two independent sites.
+// rebuild and re-upload. On the previous 20 m mask the NDMI anomaly moved by
+// under 1% of its own size across 0.05-0.95; not yet re-run at 10 m.
 // mown/grazed is about whether a CUT SIGNAL exists; intensive/extensive is
 // about the FARMING SYSTEM, and the two do not nest: 'mown' pools 613 (4-6 cuts
 // from early May) with 611/612 (~2 cuts, none before 15 June).
@@ -78,7 +93,7 @@ var MASK_BANDS = ['mown', 'grazed', 'intensive', 'extensive'];
 // comes from inside a parcel, PSF-weighted (sigma 5.3 m from the specified
 // system MTF). Threshold here rather than in the mask, so a sweep costs one
 // cheap extraction each instead of a rebuild and re-upload.
-var PURITY_MIN = 0.9;
+// PURITY_MIN: rendered from config.yaml (mask.purity_min).
 // Upload the asset with pyramidingPolicy {'.default': 'sample'}: the default
 // for float is 'mean', which would average purities at coarser scales.
 
@@ -113,7 +128,7 @@ var maskImg = ee.Image(MASK_ASSET).rename(MASK_BANDS);
 // exists; 'intensive'/'extensive' is about the farming system. Use intensive
 // for the cut work — pooling 613 with 611/612 averages two systems with very
 // different cutting schedules.
-var REGIMES = ['intensive', 'extensive'];
+// REGIMES: rendered from config.yaml (analysis.regimes).
 
 var maskFor = function(regime) {
   return maskImg
@@ -138,7 +153,7 @@ var indexCol = function(geom, year) {
     .filter(ee.Filter.calendarRange(DOY_START, DOY_END, 'day_of_year'))
     .linkCollection(csPlus, ['cs_cdf'])
     .map(function(img) {
-      var m = img.updateMask(img.select('cs_cdf').gte(0.60));
+      var m = img.updateMask(img.select('cs_cdf').gte(CLEAR_THRESHOLD));
       var ndvi = m.normalizedDifference(['B8',  'B4']).rename('NDVI');
       var ndmi = m.normalizedDifference(['B8A', 'B11']).rename('NDMI');
       var ndre = m.normalizedDifference(['B8A', 'B5']).rename('NDRE');
@@ -203,7 +218,8 @@ Export.table.toDrive({
                Math.round(PURITY_MIN * 100) + (SMOKE_TEST ? '_SMOKE' : ''),
   folder: 'GEE_Exports',
   fileNamePrefix: 'grassland_trajectory_multi_p' +
-                  Math.round(PURITY_MIN * 100) + (SMOKE_TEST ? '_SMOKE' : ''),
+                  Math.round(PURITY_MIN * 100) + (SMOKE_TEST ? '_SMOKE' : '') +
+                  '_cfg' + CONFIG_HASH,
   fileFormat: 'CSV',
   selectors: ['site', 'regime', 'year', 'date', 'doy',
               'NDVI', 'kNDVI', 'NDMI', 'NDRE', 'n_px']

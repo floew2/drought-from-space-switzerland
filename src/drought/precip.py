@@ -131,6 +131,9 @@ def load_local(folder, abbr: str | None = None) -> tuple[pd.DataFrame, str, floa
     abbr = abbr or files[0].name.split("_")[1]
     meta = pd.read_csv(folder / "ogd-smn_meta_stations.csv", sep=";")
     row = meta[meta["station_abbr"].str.lower() == abbr.lower()].iloc[0]
+    from .provenance import verify
+    for f in files:
+        verify(f, "station")
     return _read_daily(files), abbr.lower(), float(row["station_coordinates_wgs84_lat"])
 
 

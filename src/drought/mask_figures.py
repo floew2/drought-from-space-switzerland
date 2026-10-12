@@ -13,7 +13,7 @@ import numpy as np
 
 from .config import mask_path
 from .mask import GROUPS, PURITY_MIN, RES, master_parcels, psf_caption, psf_params
-from .mask.build import area_table
+from .mask.build import area_table, verify_mask
 from .mask.io import site_bounds_lv95
 from .mask.purity import _burn
 
@@ -50,6 +50,7 @@ def figure_purity_map(site: str, group: str = "mown", out: str | Path | None = N
     threshold = PURITY_MIN if threshold is None else threshold
     band = list(GROUPS).index(group) + 1
     x0, y0, x1, y1 = site_bounds_lv95(site)
+    verify_mask()
     with rasterio.open(mask_path()) as ds:
         win = rasterio.windows.from_bounds(x0, y0, x1, y1, ds.transform)
         a = ds.read(band, window=win)
@@ -190,6 +191,7 @@ def area_check(site: str | None = None,
     col = {"intensive": "#3fb950", "extensive": "#58a6ff",
            "mown": "#d29922", "grazed": "#8250df"}
     grid_t = np.round(np.arange(0.0, 0.96, 0.05), 2)
+    verify_mask()
     with rasterio.open(mask_path()) as ds:
         for i, n in enumerate(names, 1):
             a = ds.read(i, window=win)
@@ -267,6 +269,7 @@ def figure_purity_explainer(site: str = "linthebene", group: str = "intensive",
 
     # --- data -------------------------------------------------------------
     x0, y0, x1, y1 = site_bounds_lv95(site)
+    verify_mask()
     with rasterio.open(mask_path()) as ds:
         b_ = ds.bounds
         xa, ya = max(b_.left, x0), max(b_.bottom, y0)
@@ -501,6 +504,7 @@ def figure_mask_overview(sites: list[str] | None = None,
             print(f"  [!] {s}: cannot open {p} ({exc})")
 
     rows = []
+    verify_mask()
     with rasterio.open(mask_path()) as ds:
         rb = ds.bounds
         for s in sites:

@@ -63,7 +63,12 @@ in brief:
   Validated on all 65, F1 went from 0.911 to 0.912, and recall per year was
   0.81–1.00. A changepoint alternative was implemented, scored on the same
   labels, and rejected at F1 0.871. Both are kept in the code.
-- **Numbers carry their provenance.** Packaging this repository turned up a
+- **Numbers carry their provenance, and stale files are refused.** Every data
+  file has a record of the settings and mask that produced it. Loading
+  refuses a mismatch and names the field, which turns the project's worst
+  recurring problem (results outliving the method that made them) into
+  something enforced ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)).
+- **Packaging found things.** Packaging this repository turned up a
   mismatch between the response model on the slides and the one in the code,
   and a filter bug in the parcel selection. Both are documented and measured,
   and neither was fixed silently ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)).
@@ -77,6 +82,8 @@ Everything runs through one command, `drought` (see `drought --help`):
 | `drought demo` | Mask build, area accounting, trajectories, precipitation, cut detection and scoring, all on synthetic data. Exits non-zero if a calibrated value misses its target or a physical invariant fails. `make demo` runs the same. |
 | `drought --synthetic mask check` | Area cost of each purity threshold, and the PSF-model comparison. |
 | `drought --synthetic cuts score --site linthebene` | The frozen detector and the changepoint alternative, scored against the labels. |
+| `drought results show` | Every headline number from `results.json`, refused if any of it was computed under other settings or another mask. |
+| `drought gee render` | Writes `config.yaml`'s shared settings into the Earth Engine scripts; CI fails if they drift. |
 | `drought config show mask` | The effective configuration, after all overrides. |
 | `make test` | One regression test per bug that actually happened, each also showing that the old logic fails it ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)); plus the PSF derivation, CLI precedence and synthetic calibration. |
 

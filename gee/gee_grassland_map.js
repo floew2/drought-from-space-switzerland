@@ -13,6 +13,23 @@
 // ----------------------------------------------------------------------------
 // 1. Config
 // ----------------------------------------------------------------------------
+// >>> drought gee render: generated from config.yaml. Do not edit by hand —
+// change config.yaml and run `drought gee render`.
+// Paste-ready copy: drought --set gee.project=<project> gee render --out output/gee
+var PROJECT = "YOUR_EE_PROJECT";   // Earth Engine project with the assets
+var ASSETS = 'projects/' + PROJECT + '/assets/';
+var MASK_ASSET = ASSETS + "grassland_mask_sg";   // uploaded from build_mask()'s GeoTIFF
+var PARCEL_PREFIX = ASSETS + "nutzungsflaechen_";   // + year
+var CONFIG_HASH = "bdedabe82ea4";   // settings + mask this copy was rendered with; goes into export names
+var PURITY_MIN = 0.9;   // mask.purity_min
+var CLEAR_THRESHOLD = 0.6;   // Cloud Score+ cs_cdf, gee.clear_threshold
+var MASK_BANDS = ["mown", "grazed", "intensive", "extensive"];   // band order of the mask raster, as written by build_mask()
+var MOWN_CODES = [611, 612, 613, 634, 635, 650, 694, 621, 622, 623, 935];   // landuse.mown
+var GRAZED_CODES = [616, 617, 618, 660, 693, 625, 930, 933];   // landuse.grazed
+var YEAR_DRY = 2026;   // project.current_year
+var BASELINE_YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];   // project.baseline_years
+// <<< end of generated block
+
 var ACTIVE_SITE = 'rheintal';
 // 'rheintal' | 'linthebene' | 'alpstein' | 'diemtigtal'
 
@@ -51,30 +68,30 @@ var AOI = site.geom;
 print('Active site:', site.name);
 
 var assetForYear = function(year) {
-  return 'projects/YOUR_EE_PROJECT/assets/nutzungsflaechen_' + year;
+  return PARCEL_PREFIX + year;
 };
 
 // The persistence raster built by drought.mask.build_mask(). Parcel polygons come
 // from the vector asset (this map is per-parcel), but the anomaly is computed
 // ONLY over pixels that were grassland in every year — otherwise a parcel that
 // was arable during part of the baseline gets a spurious anomaly.
-var MASK_ASSET = 'projects/YOUR_EE_PROJECT/assets/grassland_mask_sg';
+// MASK_ASSET: rendered from config.yaml.
 // Four float bands of PSF-weighted purity 0-1, on the 10 m Sentinel grid.
 // Persistence is NOT in the raster — it is in the parcel selection that built
 // the mask (grassland in every year AND the same management category), so the
 // bands carry only purity and the sensor halo is intact.
-var MASK_BANDS = ['mown', 'grazed', 'intensive', 'extensive'];
+// MASK_BANDS: rendered (the band order build_mask() writes).
 
 // Threshold here, not in the mask: sweeping this costs one extraction, not a
-// rebuild and re-upload. Measured: the NDMI anomaly varies by 0.5% of its own
-// size across the full range 0.05-0.95, at two independent sites.
+// rebuild and re-upload. On the previous 20 m mask the NDMI anomaly moved by
+// under 1% of its own size across 0.05-0.95; not yet re-run at 10 m.
 // mown/grazed is about whether a CUT SIGNAL exists; intensive/extensive is
 // about the FARMING SYSTEM, and the two do not nest: 'mown' pools 613 (4-6 cuts
 // from early May) with 611/612 (~2 cuts, none before 15 June).
 // The mask bands are CONTINUOUS purity 0-1: the fraction of each 20 m cell
 // that lies inside a parcel. Threshold here — sweeping this costs one
 // extraction, not a mask rebuild and re-upload.
-var PURITY_MIN = 0.9;
+// PURITY_MIN: rendered from config.yaml (mask.purity_min).
 // NOTE on reading a float mask at a coarser scale: GEE's default pyramiding for
 // float is 'mean', so at 50 m you would get the MEAN of four 20 m purities — a
 // plausible-looking number that is the purity of nothing. Upload the asset with
@@ -93,18 +110,15 @@ var FIELD_CODE = 'lnf_code';
 //
 // mown: 611/612/613 Dauerwiesen, 634/635 Uferwiesen, 650 aggregate,
 //       694 BFF Gruenflaeche, 621/622/623/935 Heuwiesen im Soemmerungsgebiet
-var MOWN_CODES = [611, 612, 613, 634, 635, 650, 694,
-                  621, 622, 623, 935];
+// MOWN_CODES: rendered from config.yaml (landuse.mown).
 // grazed: 616/617 Weiden, 618 Waldweiden, 660 aggregate, 693 BFF Weiden,
 //         625 Waldweiden Soemmerung, 930 Soemmerungsweiden, 933 Gemeinschaftsweiden
-var GRAZED_CODES = [616, 617, 618, 660, 693,
-                    625, 930, 933];
+// GRAZED_CODES: rendered from config.yaml (landuse.grazed).
 // Deliberately EXCLUDED everywhere: 601/602 Kunstwiesen (temporary ley, arable
 // rotation), 631/632 seed production, 851/936 Streueflaechen, 697/698 (regime
 // cannot be determined).
 
-var YEAR_DRY       = 2026;
-var BASELINE_YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];
+// YEAR_DRY, BASELINE_YEARS: rendered from config.yaml (project).
 
 // Window depends on the stratum. This is the ONLY thing `stratum` still
 // controls, and it is a physical argument rather than a bookkeeping one:
@@ -173,7 +187,7 @@ var indexComposite = function(year) {
     .filter(ee.Filter.calendarRange(DOY_START, DOY_END, 'day_of_year'))
     .linkCollection(csPlus, ['cs_cdf'])
     .map(function(img) {
-      var m = img.updateMask(img.select('cs_cdf').gte(0.60));
+      var m = img.updateMask(img.select('cs_cdf').gte(CLEAR_THRESHOLD));
       return INDEX === 'NDMI'
         ? m.normalizedDifference(['B8', 'B11']).rename(INDEX)
         : m.normalizedDifference(['B8', 'B4']).rename(INDEX);

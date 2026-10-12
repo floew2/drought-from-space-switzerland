@@ -24,16 +24,23 @@
 // ----------------------------------------------------------------------------
 // 1. Configuration
 // ----------------------------------------------------------------------------
+// >>> drought gee render: generated from config.yaml. Do not edit by hand —
+// change config.yaml and run `drought gee render`.
+// Paste-ready copy: drought --set gee.project=<project> gee render --out output/gee
+var CLEAR_THRESHOLD = 0.6;   // Cloud Score+ cs_cdf, gee.clear_threshold
+var YEAR_DRY = 2026;   // project.current_year
+var BASELINE_YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];   // project.baseline_years
+// <<< end of generated block
+
 var ACTIVE_SITE = 'untersee';   // 'untersee' | 'rheintal' | 'linthebene'
 
-var YEAR_DRY       = 2026;
-var BASELINE_YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];
+// YEAR_DRY, BASELINE_YEARS: rendered from config.yaml (project).
 
 var DOY_START = 166;   // same window as the MODIS figure, for comparability
 var DOY_END   = 212;
 
 var QA_BAND        = 'cs_cdf';  // 'cs' is more instantaneous; 'cs_cdf' more stable
-var CLEAR_THRESHOLD = 0.60;     // catalogue guidance: 0.50-0.65
+// CLEAR_THRESHOLD: rendered from config.yaml (gee.clear_threshold); catalogue guidance 0.50-0.65
 var MAX_SCENE_CLOUD = 80;       // drop hopeless scenes early, saves compute
 
 var WATER_METHOD = 'both';   // 'ndwi' | 'dynamicworld' | 'both'

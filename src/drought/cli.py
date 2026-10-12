@@ -9,6 +9,9 @@
     drought cuts detect --site S
     drought cuts score --site S
     drought gallery
+    drought gee render [--out DIR] [--check]
+    drought provenance register|verify|show FILES [--kind KIND]
+    drought results show
     drought config show [KEY]
 
 Where settings come from, in increasing precedence:
@@ -51,15 +54,26 @@ def _synthetic_generate(a) -> None:
 
 
 def _mask_build(a) -> None:
-    from . import mask
-    mask.build_mask(shp_dir=a.shp_dir)
+    from . import config, mask, results
+    master = mask.build_mask(shp_dir=a.shp_dir)
+    results.update("mask", {"funnel": master.attrs["funnel"], "response": mask.psf_params()},
+                   inputs=[config.mask_path()])
 
 
 def _mask_check(a) -> None:
-    from . import mask
+    from . import config, mask, results
     master = mask.master_parcels(a.shp_dir, verbose=False)
-    mask.area_table(master, site=a.site)
-    mask.psf_model_check(master)
+    table = mask.area_table(master, site=a.site)
+    table.pop("_window")
+    check = mask.psf_model_check(master)
+    results.update("mask_area", {
+        "window": a.site or "full extent",
+        "categories": {n: {"parcels": d["parcels"], "polygon_ha": round(d["polygon_ha"], 1),
+                           "ratio": {f"{t:g}": round(r, 4) for t, r in d["ratio"].items()}}
+                       for n, d in table.items()},
+        "psf_model_check": {f"{c}@{t:g}": {k: round(float(v), 4) for k, v in row.items()}
+                            for (c, t), row in check.iterrows()}},
+        inputs=[config.mask_path()])
 
 
 def _mask_figures(a) -> None:
@@ -76,11 +90,18 @@ def _mask_figures(a) -> None:
 
 
 def _trajectory_plot(a) -> None:
-    from . import trajectory
-    res = trajectory.plot(site=a.site, path=a.path, index=a.index)
+    from . import results, trajectory
+    src = a.path or trajectory._find_csv(a.site)
+    res = trajectory.plot(site=a.site, path=src, index=a.index)
     if res is not None:
         print(res[["site", "regime", "integral_pct", "rank", "upto", "n_days"]]
               .to_string(index=False))
+        results.update("condition", {
+            f"{r.site}/{r.regime}": {"index": trajectory.INDEX,
+                                     "integral_pct": round(float(r.integral_pct), 1),
+                                     "rank": int(r.rank), "n_baseline_years": int(r.n_baseline_years),
+                                     "upto_doy": int(r.upto), "shared_days": int(r.n_days)}
+            for r in res.itertuples()}, inputs=[src], merge=True)
 
 
 def _precip(a) -> None:
@@ -93,8 +114,12 @@ def _precip(a) -> None:
     except FileNotFoundError:
         sys.exit(f"no station files in {config.station_dir()}; "
                  "use --download to fetch them from MeteoSwiss")
+    from . import results
     label = "Synthetic station" if config.active_profile() == "synthetic" else None
-    precip.main(daily=daily, abbr=abbr, lat=lat, station_label=label)
+    res = precip.main(daily=daily, abbr=abbr, lat=lat, station_label=label)
+    res.pop("file", None)
+    results.update("precipitation", res,
+                   inputs=sorted(config.station_dir().glob("ogd-smn_*_d_*.csv")))
 
 
 def _cuts_detect(a) -> None:
@@ -118,6 +143,15 @@ def _cuts_score(a) -> None:
     cp = changepoint.score_detector(lab, df, changepoint.detect_changepoints)
     print(f"\nchangepoint alternative: precision {cp['precision']}  recall "
           f"{cp['recall']}  F1 {cp['f1']}")
+    from . import config, results
+    h = evaluate.score(lab, df, verbose=False)
+    by_year = evaluate.score_by_year(lab, df)
+    results.update(f"detector.{a.site}", {
+        "labelled_parcel_years": len(lab), "precision": h["precision"],
+        "recall": h["recall"], "f1": h["f1"],
+        "recall_per_year": [float(by_year.recall.min()), float(by_year.recall.max())],
+        "changepoint_f1": cp["f1"]},
+        inputs=sorted(config.gee_dir(a.site).glob("cuts_*.csv")))
 
 
 def _gallery(a) -> None:
@@ -150,6 +184,61 @@ def _run_all(a) -> None:
             failed.append(name)
     if failed:
         print(f"\nskipped for missing input: {', '.join(failed)}")
+
+
+def _gee_render(a) -> None:
+    from . import gee
+    if a.check:
+        bad = gee.check()
+        if bad:
+            sys.exit("gee scripts differ from config.yaml; run `drought gee render`: "
+                     + ", ".join(p.name for p in bad))
+        print("gee scripts match config.yaml")
+        return
+    try:
+        written = gee.render(out=a.out)
+    except ValueError as exc:
+        sys.exit(f"drought: {exc}")
+    for p in written:
+        print(f"  wrote {p}")
+    if not written:
+        print("  nothing to change")
+    if a.out:
+        print(f"  CONFIG_HASH {gee.expected_hash()}: exports from these copies carry it "
+              "in their file names")
+
+
+def _provenance(a) -> None:
+    import json
+
+    from . import provenance
+    try:
+        if a.action == "register":
+            for f in a.files:
+                print(f"  registered {f} -> {provenance.register(f, a.kind).name}")
+        elif a.action == "verify":
+            for f in a.files:
+                provenance.verify(f, a.kind)
+                print(f"  ok  {f}")
+        else:
+            for f in a.files:
+                print(json.dumps(json.loads(provenance.sidecar_path(f).read_text()), indent=1))
+    except provenance.ProvenanceError as exc:
+        sys.exit(f"drought: {exc}")
+
+
+def _results_show(a) -> None:
+    import json
+
+    from . import results
+    try:
+        doc = results.load(strict=not a.allow_stale)
+    except FileNotFoundError:
+        sys.exit(f"no results yet: {results.path()}")
+    except RuntimeError as exc:
+        sys.exit(f"drought: {exc}")
+    print(f"# {results.path()}")
+    print(json.dumps({k: v["data"] for k, v in doc["sections"].items()}, indent=1))
 
 
 def _config_show(a) -> None:
@@ -244,6 +333,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("gallery", help="refresh docs/figures/{model,demo}").set_defaults(func=_gallery)
 
+    g = sub.add_parser("gee", help="Earth Engine scripts").add_subparsers(
+        dest="action", required=True, metavar="ACTION")
+    c = g.add_parser("render", help="write config.yaml's settings into the scripts in gee/")
+    c.add_argument("--out", help="write paste-ready copies here instead (needs gee.project)")
+    c.add_argument("--check", action="store_true",
+                   help="fail if gee/ differs from a fresh render (CI)")
+    c.set_defaults(func=_gee_render)
+
+    pv = sub.add_parser("provenance", help="provenance records of data files").add_subparsers(
+        dest="action", required=True, metavar="ACTION")
+    for name, text in (("register", "record an Earth Engine export on arrival, after checking it"),
+                       ("verify", "check files against the current configuration and mask"),
+                       ("show", "print a file's record")):
+        c = pv.add_parser(name, help=text)
+        c.add_argument("files", nargs="+")
+        if name != "show":
+            c.add_argument("--kind", required=True, choices=["trajectory", "cuts", "station", "mask"])
+        c.set_defaults(func=_provenance)
+
+    r = sub.add_parser("results", help="output/results.json").add_subparsers(
+        dest="action", required=True, metavar="ACTION")
+    c = r.add_parser("show", help="print every headline number, refusing stale sections")
+    c.add_argument("--allow-stale", action="store_true")
+    c.set_defaults(func=_results_show)
+
     c = sub.add_parser("config", help="inspect the effective configuration").add_subparsers(
         dest="action", required=True, metavar="ACTION").add_parser(
         "show", help="print it, after --config, --synthetic and --set")
@@ -273,7 +387,11 @@ def main(argv: list[str] | None = None) -> None:
     if synthetic:
         from .synthetic import stamp_figures
         stamp_figures()
-    args.func(args)
+    from .provenance import ProvenanceError
+    try:
+        args.func(args)
+    except ProvenanceError as exc:
+        sys.exit(f"drought: refused — {exc}")
 
 
 if __name__ == "__main__":

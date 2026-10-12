@@ -26,6 +26,20 @@
 // ----------------------------------------------------------------------------
 // 1. Config
 // ----------------------------------------------------------------------------
+// >>> drought gee render: generated from config.yaml. Do not edit by hand —
+// change config.yaml and run `drought gee render`.
+// Paste-ready copy: drought --set gee.project=<project> gee render --out output/gee
+var PROJECT = "YOUR_EE_PROJECT";   // Earth Engine project with the assets
+var ASSETS = 'projects/' + PROJECT + '/assets/';
+var MASK_ASSET = ASSETS + "grassland_mask_sg";   // uploaded from build_mask()'s GeoTIFF
+var PARCEL_PREFIX = ASSETS + "nutzungsflaechen_";   // + year
+var CONFIG_HASH = "bdedabe82ea4";   // settings + mask this copy was rendered with; goes into export names
+var PURITY_MIN = 0.9;   // mask.purity_min
+var CLEAR_THRESHOLD = 0.5;   // Cloud Score+ cs_cdf, gee.clear_threshold
+var MASK_BANDS = ["mown", "grazed", "intensive", "extensive"];   // band order of the mask raster, as written by build_mask()
+var MOWN_CODES = [611, 612, 613, 634, 635, 650, 694, 621, 622, 623, 935];   // landuse.mown
+// <<< end of generated block
+
 var SITES = {
   linthebene: ee.Geometry.Rectangle([8.90, 47.16, 9.12, 47.30]),
   rheintal:   ee.Geometry.Rectangle([9.50, 47.32, 9.72, 47.50])
@@ -47,24 +61,23 @@ var SMOKE_TEST = false;   // full run
 
 // MOWN ONLY. Grazing is continuous defoliation and produces no step to detect;
 // including grazed parcels would just add guaranteed false negatives.
-var MOWN_CODES = [611, 612, 613, 634, 635, 650, 694,
-                  621, 622, 623, 935];
+// MOWN_CODES: rendered from config.yaml (landuse.mown).
 
-var PARCEL_ASSET = 'projects/YOUR_EE_PROJECT/assets/nutzungsflaechen_2025';
+var PARCEL_ASSET = PARCEL_PREFIX + '2025';
 var FIELD_CODE   = 'lnf_code';
 
 // Persistence raster from drought.mask.build_mask(). Parcels supply the units,
 // the raster restricts which pixels inside them count.
-var MASK_ASSET = 'projects/YOUR_EE_PROJECT/assets/grassland_mask_sg';
+// MASK_ASSET: rendered from config.yaml.
 // Four float bands of PSF-weighted purity 0-1, on the 10 m Sentinel grid.
 // Persistence is NOT in the raster — it is in the parcel selection that built
 // the mask (grassland in every year AND the same management category), so the
 // bands carry only purity and the sensor halo is intact.
-var MASK_BANDS = ['mown', 'grazed', 'intensive', 'extensive'];
+// MASK_BANDS: rendered (the band order build_mask() writes).
 
 // Threshold here, not in the mask: sweeping this costs one extraction, not a
-// rebuild and re-upload. Measured: the NDMI anomaly varies by 0.5% of its own
-// size across the full range 0.05-0.95, at two independent sites.
+// rebuild and re-upload. On the previous 20 m mask the NDMI anomaly moved by
+// under 1% of its own size across 0.05-0.95; not yet re-run at 10 m.
 // mown/grazed is about whether a CUT SIGNAL exists; intensive/extensive is
 // about the FARMING SYSTEM, and the two do not nest: 'mown' pools 613 (4-6 cuts
 // from early May) with 611/612 (~2 cuts, none before 15 June).
@@ -89,7 +102,7 @@ var SEED          = 42;
 // which is where the analysis is weakest, since detection sensitivity scales
 // with image count. The extra haze that slips through is caught downstream by
 // the NDVI-vs-NDMI disagreement test.
-var CLEAR_THRESHOLD = 0.50;
+// CLEAR_THRESHOLD: rendered from config.yaml (gee.clear_threshold).
 var MAX_SCENE_CLOUD = 80;     // drop hopeless scenes before any reduction
 
 // Restrict to ONE MGRS tile. The AOI is covered by two (T32TMT, T32TNT), so
@@ -158,7 +171,7 @@ Map.addLayer(sample, {color: '#ff3b30'}, 'sampled parcels');
 // coarser scale would average purities — a plausible number that is the purity
 // of nothing. Upload with pyramidingPolicy {'.default': 'sample'}, or reduce at
 // the native 20 m.
-var PURITY_MIN = 0.9;
+// PURITY_MIN: rendered from config.yaml (mask.purity_min).
 var persistMask = ee.Image(MASK_ASSET).rename(MASK_BANDS)
   .select('mown').gte(PURITY_MIN);
 
@@ -245,7 +258,8 @@ YEARS.forEach(function(year) {
     collection: rows,
     description: 'cuts_' + SITE + '_' + year + (SMOKE_TEST ? '_SMOKE' : ''),
     folder: 'GEE_Exports',
-    fileNamePrefix: 'cuts_' + SITE + '_' + year + (SMOKE_TEST ? '_SMOKE' : ''),
+    fileNamePrefix: 'cuts_' + SITE + '_' + year + (SMOKE_TEST ? '_SMOKE' : '') +
+                    '_cfg' + CONFIG_HASH,
     fileFormat: 'CSV'
     // No selectors: band names are generated, so let everything through and
     // reshape wide -> long in Python.

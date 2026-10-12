@@ -108,19 +108,35 @@ def generate(seed: int | None = None, scale: float | None = None,
         print(f"    {len(pop):,} parcels in 2025; "
               + ", ".join(f"{k} {v}" for k, v in out["parcels"]["status"].items()))
 
+    # The exports below depend on the mask, as real ones do, so it is built
+    # first and every export is registered against it. The build is
+    # deterministic: rebuilding gives the same raster, and the records stay valid.
+    import contextlib
+    import io as _io
+
+    from .. import mask as _mask
+    from ..provenance import register
+    if verbose:
+        print("  building the synthetic mask the exports depend on")
+    with contextlib.redirect_stdout(_io.StringIO()):
+        _mask.build_mask()
+
     if verbose:
         print("  site trajectories, calibrated to the real season integrals:")
     traj = series.trajectories(rng["trajectory"], verbose=verbose)
     tpath = config.ROOT / CFG.paths.gee / "grassland_trajectory_multi.csv"
     tpath.parent.mkdir(parents=True, exist_ok=True)
     traj.to_csv(tpath, index=False)
+    register(tpath, "trajectory")
     out["trajectory"] = str(tpath.relative_to(config.ROOT))
 
     if verbose:
         print("  per-parcel cut series and hand labels")
     wide, truth = series.cut_series(rng["cuts"], pop)
     for (site, year), df in wide.items():
-        df.to_csv(gee_dir(site) / f"cuts_{site}_{year}.csv", index=False)
+        f = gee_dir(site) / f"cuts_{site}_{year}.csv"
+        df.to_csv(f, index=False)
+        register(f, "cuts")
     labels = series.hand_labels(rng["labels"], truth)
     for site, lab in labels.items():
         with open(labels_path(site), "w") as f:
@@ -132,7 +148,8 @@ def generate(seed: int | None = None, scale: float | None = None,
     if verbose:
         print("  station series")
     st = station.generate(rng["station"])
-    station.write(st, station_dir())
+    for f in station.write(st, station_dir()):
+        register(f, "station")
     out["station"] = dict(st.attrs)
     if verbose:
         print(f"  -> {root}")

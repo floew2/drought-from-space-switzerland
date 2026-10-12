@@ -27,11 +27,31 @@
 // ----------------------------------------------------------------------------
 // 1. Configuration
 // ----------------------------------------------------------------------------
+// >>> drought gee render: generated from config.yaml. Do not edit by hand —
+// change config.yaml and run `drought gee render`.
+// Paste-ready copy: drought --set gee.project=<project> gee render --out output/gee
+var PROJECT = "YOUR_EE_PROJECT";   // Earth Engine project with the assets
+var ASSETS = 'projects/' + PROJECT + '/assets/';
+var MASK_ASSET = ASSETS + "grassland_mask_sg";   // uploaded from build_mask()'s GeoTIFF
+var PARCEL_PREFIX = ASSETS + "nutzungsflaechen_";   // + year
+var CONFIG_HASH = "bdedabe82ea4";   // settings + mask this copy was rendered with; goes into export names
+var PURITY_MIN = 0.9;   // mask.purity_min
+var CLEAR_THRESHOLD = 0.5;   // Cloud Score+ cs_cdf, gee.clear_threshold
+var MASK_BANDS = ["mown", "grazed", "intensive", "extensive"];   // band order of the mask raster, as written by build_mask()
+var CODES = {
+  intensive: [613, 650],
+  extensive: [611, 612, 634, 635, 693, 694],
+  mown: [611, 612, 613, 634, 635, 650, 694, 621, 622, 623, 935],
+  grazed: [616, 617, 618, 660, 693, 625, 930, 933]
+};
+var YEAR_CUR = 2026;   // project.current_year
+var BASELINE_YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];   // project.baseline_years
+// <<< end of generated block
+
 var ACTIVE_SITE = 'linthebene';   // 'linthebene' | 'rheintal' | 'alpstein'
 var REGIME      = 'intensive';    // matches a mask band, see MASK_BANDS
 
-var YEAR_CUR    = 2026;
-var BASELINE_YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];
+// YEAR_CUR, BASELINE_YEARS: rendered from config.yaml (project).
 
 var DOY_START = 121;   // 1 May
 var DOY_END   = 243;   // 31 Aug  — the window the anomaly is quoted over
@@ -46,31 +66,25 @@ var STRICT_PURITY = 0.90;
 // actually choose, so the reconstructed curve is not limited by the binning.
 var N_CLASSES = 20;
 
-var CLEAR_THRESHOLD = 0.50;
+// CLEAR_THRESHOLD: rendered from config.yaml (gee.clear_threshold).
 var MAX_SCENE_CLOUD = 80;
 var SCALE = 10;   // native mask resolution — no pyramiding of purities
 
-var MASK_ASSET   = 'projects/YOUR_EE_PROJECT/assets/grassland_mask_sg';
-var PARCEL_ASSET = 'projects/YOUR_EE_PROJECT/assets/nutzungsflaechen_2025';
+var PARCEL_ASSET = PARCEL_PREFIX + '2025';   // MASK_ASSET: rendered
 var FIELD_CODE   = 'lnf_code';
 
 // Four float bands of PSF-weighted purity 0-1, on the 10 m Sentinel grid.
 // Persistence is NOT in the raster — it is in the parcel selection that built
 // the mask (grassland in every year AND the same management category), so the
 // bands carry only purity and the sensor halo is intact.
-var MASK_BANDS = ['mown', 'grazed', 'intensive', 'extensive'];
+// MASK_BANDS: rendered (the band order build_mask() writes).
 
 // Threshold here, not in the mask: sweeping this costs one extraction, not a
-// rebuild and re-upload. Measured: the NDMI anomaly varies by 0.5% of its own
-// size across the full range 0.05-0.95, at two independent sites.
-var PURITY_MIN = 0.9;
+// rebuild and re-upload. On the previous 20 m mask the NDMI anomaly moved by
+// under 1% of its own size across 0.05-0.95; not yet re-run at 10 m.
+// PURITY_MIN: rendered from config.yaml (mask.purity_min).
 
-var CODES = {
-  intensive: [613, 650],
-  extensive: [611, 612, 634, 635, 693, 694],
-  mown:      [611, 612, 613, 634, 635, 650, 694, 621, 622, 623, 935],
-  grazed:    [616, 617, 618, 660, 693, 625, 930, 933]
-};
+// CODES: rendered from config.yaml (landuse).
 
 var SITES = {
   linthebene: ee.Geometry.Rectangle([8.90, 47.16, 9.12, 47.30]),
@@ -169,7 +183,7 @@ Export.table.toDrive({
   collection: rows,
   description: 'purity_sensitivity_' + ACTIVE_SITE + '_' + REGIME,
   folder: 'GEE_Exports',
-  fileNamePrefix: 'purity_sensitivity_' + ACTIVE_SITE + '_' + REGIME,
+  fileNamePrefix: 'purity_sensitivity_' + ACTIVE_SITE + '_' + REGIME + '_cfg' + CONFIG_HASH,
   fileFormat: 'CSV',
   selectors: ['year', 'pclass', 'purity_lo', 'mean', 'n_px']
 });

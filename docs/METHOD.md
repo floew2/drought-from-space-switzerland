@@ -533,6 +533,33 @@ test is shown to catch the bug, not merely to pass on the fixed code:
 | `test_psf.py::test_tiled_purity_equals_single_pass` | 9 |
 | `test_cli.py::test_override_after_import_is_refused` | the stale-setting failure behind `assert_wired` (§5.3) |
 
+### How bug 6 became a guarantee
+
+Bug 6 was not fixed by being careful. It was fixed by structure
+(`drought.provenance`):
+
+- **Every file carries a record.** It names the settings that shape the
+  file, the mask's content hash, resolution, bands and dtype, a hash of the
+  file itself, a summary of its content, the package version and a
+  timestamp. Earth Engine cannot write such a record, so an export is
+  *registered* on arrival.
+- **Registration and loading refuse what cannot be current,** and say why.
+  That covers a record from other settings (`mask.purity_min differs —
+  recorded 0.8, current 0.9`), another mask build, a file changed after it
+  was recorded, a missing record, management categories the pipeline does
+  not use, missing years, a 20 m or uint8 mask, and a `.geo` column.
+- **The Earth Engine scripts take their shared settings from `config.yaml`**
+  through `drought gee render`. Each rendered copy writes a hash of its
+  settings and mask into its export file names, so registration can tell
+  which configuration produced a download.
+- **`output/results.json` never mixes vintages.** Each section is stamped with
+  the settings and mask it was computed under. A stale section is dropped on
+  the next write, and `results.json` refuses to load while one remains.
+
+The CSV that was nearly published, with `mown`/`grazed` categories, a 2026
+series ending in mid-August, and a 20 m uint8 mask beside it, would now be
+stopped at registration. `tests/test_provenance.py` covers each case.
+
 ## 7. The synthetic data, and what it can and cannot show
 
 The real inputs cannot be published, so `drought.synthetic` generates stand-ins
@@ -601,11 +628,9 @@ real result above stands or falls on the real data.
   detector re-score.
 - **Re-measure the funnel and geometry** on the real data without the 0.25 ha
   filter (§2.1). Every number in §2.1, §2.2 and §2.4 is provisional until then.
-- **Provenance records** on every generated table, and a loader that refuses a
-  file whose provenance disagrees with the current configuration. A
-  deliberately stale record must fail a test. This turns bug 6 from a lesson
-  into a guarantee.
-- **One source of truth for Earth Engine settings.** The cloud threshold is 0.50
-  in two scripts and 0.60 in two others, the purity threshold is repeated in four
-  scripts, and the project ID is hard-coded. A renderer that writes these blocks
-  from `config.yaml`, checked by CI, is planned.
+- **Unify the Cloud Score+ threshold.** It is 0.50 in the cut extraction and
+  the purity-sensitivity script, and 0.60 in the other three. Since step 7 the
+  values live in `config.yaml` (`gee.clear_threshold`) and are rendered into
+  the scripts, so the disagreement is visible and has one place to be
+  resolved. It is not resolved yet; the current values were kept so that the
+  2026 re-run is not affected.

@@ -86,7 +86,7 @@ def run(fresh: bool = False) -> dict:
         gen = {"note": "existing synthetic data reused; --fresh to regenerate"}
         print("synthetic data present — reusing (python -m drought.demo --fresh to regenerate)")
 
-    from drought import mask, mask_figures, precip, trajectory
+    from drought import mask, mask_figures, precip, results, trajectory
 
     summary = {"generator": gen}
 
@@ -102,27 +102,47 @@ def run(fresh: bool = False) -> dict:
         for (c, t), row in mask.psf_model_check(master).iterrows()}
     summary["psf"] = mask_figures.figure_psf()
     summary["geometry"] = _geometry(mask_figures.figure_parcel_size(master=master))
+    results.update("mask", {"funnel": master.attrs["funnel"], "response": mask.psf_params()},
+                   inputs=[config.mask_path()])
+    results.update("mask_area", {
+        "window": "full extent",
+        "categories": {n: {"parcels": d["parcels"], "polygon_ha": round(d["polygon_ha"], 1),
+                           "ratio": {f"{t:g}": round(r, 4) for t, r in d["ratio"].items()}}
+                       for n, d in area.items()},
+        "psf_model_check": summary["psf_model_check"]}, inputs=[config.mask_path()])
     areas = {n: float(master[master["_code"].isin(c)].geometry.area.sum() / 1e4)
              for n, c in mask.GROUPS.items()}
     mask_figures.figure_purity_explainer(site="linthebene", group="intensive", areas=areas)
     mask_figures.figure_purity_map("linthebene", group="intensive")
 
     print("\n=== 2  grassland condition =====================================")
-    traj = trajectory.plot(path=config.ROOT / config.CFG.paths.gee
-                           / "grassland_trajectory_multi.csv", index="NDMI")
+    tpath = config.ROOT / config.CFG.paths.gee / "grassland_trajectory_multi.csv"
+    traj = trajectory.plot(path=tpath, index="NDMI")
     summary["trajectory"] = {
         f"{r.site}/{r.regime}": {"integral_pct": round(float(r.integral_pct), 1),
                                  "rank": int(r.rank), "upto": int(r.upto),
                                  "n_days": int(r.n_days)}
         for r in traj.itertuples()}
+    results.update("condition", {
+        f"{r.site}/{r.regime}": {"index": "NDMI", "integral_pct": round(float(r.integral_pct), 1),
+                                 "rank": int(r.rank), "n_baseline_years": int(r.n_baseline_years),
+                                 "upto_doy": int(r.upto), "shared_days": int(r.n_days)}
+        for r in traj.itertuples()}, inputs=[tpath])
 
     print("\n=== 3  precipitation ===========================================")
     daily, abbr, lat = precip.load_local(config.station_dir())
     summary["precip"] = precip.main(daily=daily, abbr=abbr, lat=lat,
                                     station_label="Synthetic station")
+    results.update("precipitation", {k: v for k, v in summary["precip"].items() if k != "file"},
+                   inputs=sorted(config.station_dir().glob("ogd-smn_*_d_*.csv")))
 
     print("\n=== 4  cut detection ===========================================")
     summary["detector"] = {s: _cuts(s) for s in ("linthebene", "rheintal")}
+    for site, d in summary["detector"].items():
+        results.update(f"detector.{site}", d,
+                       inputs=sorted(config.gee_dir(site).glob("cuts_*.csv")))
+    results.load()                 # every section must be from the same settings and mask
+    print(f"  results -> {results.path().relative_to(config.ROOT)}")
 
     summary["runtime_s"] = round(time.time() - t0, 1)
     summary["failed_checks"] = check(summary, T)
