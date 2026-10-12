@@ -78,7 +78,7 @@ Everything runs through one command, `drought` (see `drought --help`):
 | `drought --synthetic mask check` | Area cost of each purity threshold, and the PSF-model comparison. |
 | `drought --synthetic cuts score --site linthebene` | The frozen detector and the changepoint alternative, scored against the labels. |
 | `drought config show mask` | The effective configuration, after all overrides. |
-| `make test` | Unit tests: PSF derivation and the response width the code applies, tiled = single-pass purity, the master-set funnel, CLI precedence, synthetic calibration. |
+| `make test` | One regression test per bug that actually happened, each also showing that the old logic fails it ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)); plus the PSF derivation, CLI precedence and synthetic calibration. |
 
 Settings come from `config.yaml`. Precedence, lowest to highest:
 `config.yaml` < `--config FILE` < `--synthetic` < `--set KEY=VALUE`. For

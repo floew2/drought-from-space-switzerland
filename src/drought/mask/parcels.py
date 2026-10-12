@@ -81,23 +81,26 @@ def load_year(path: Path) -> gpd.GeoDataFrame:
 
 
 def _repair(g: gpd.GeoDataFrame, label: str = "") -> gpd.GeoDataFrame:
-    """Make every geometry valid, or drop it.
+    """Make every geometry valid without losing area, or drop it with a count.
 
-    buffer(0) fixes most self-intersections but not all: a ring that touches
-    itself at a point can survive it and then throw a side-location conflict
-    during intersection, several minutes into a run. make_valid handles those,
-    and anything still broken afterwards is discarded with a count — one
-    unusable parcel is not worth losing the overlay for.
+    make_valid first, buffer(0) only as a fallback. The order matters:
+    buffer(0) "repairs" a figure-eight outline into a valid polygon with one
+    lobe missing, half the field gone without any error, so trying it first
+    meant make_valid never saw that case. make_valid keeps every lobe. A ring
+    that touches itself at a point is also handled; left alone, it throws a
+    side-location conflict several minutes into the overlay. Anything still
+    broken is discarded with a count: one unusable parcel is not worth losing
+    the overlay for.
     """
     from shapely.validation import make_valid
 
     bad = ~g.geometry.is_valid
     n = int(bad.sum())
     if n:
-        fixed = g.loc[bad, "geometry"].buffer(0)
+        fixed = g.loc[bad, "geometry"].apply(make_valid)
         still = ~fixed.is_valid
         if still.any():
-            fixed.loc[still] = fixed.loc[still].apply(make_valid)
+            fixed.loc[still] = fixed.loc[still].buffer(0)
         g = g.copy()
         g.loc[bad, "geometry"] = fixed
 
