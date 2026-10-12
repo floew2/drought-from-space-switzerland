@@ -228,8 +228,20 @@ it can be swept at the cost of one extraction. On the **previous 20 m mask**,
 the 2026 NDMI anomaly moved by under 1 % of its own size across the whole range
 0.05–0.95, at two independent sites. If that holds at 10 m, the threshold
 changes how many pixels are measured but not what they say. **It has not yet
-been re-run on the 10 m mask**, and the script needs one fix before it is
-([§8](#8-open-items)).
+been re-run on the 10 m mask** ([§8](#8-open-items)).
+
+That earlier sweep had a design flaw. It admitted only parcels with at least
+one cell of purity 0.90, so composition stayed fixed while the threshold
+moved. That isolates contamination cleanly, but only for large, compact fields,
+which are the fields contamination barely touches. The re-run admits every
+parcel (`gee.strict_purity: 0.0`). It answers the question the headline
+depends on: would the reported anomaly change under another threshold, for the
+grassland it is reported for? At high thresholds small fields drop out, so a
+drift there could be contamination or composition. If the curve drifts, the
+0.90 run separates the two. At Alpstein the sweep uses the summering window,
+DOY 196–258, rather than May–August. The sweep uses the same Cloud Score+
+threshold as the trajectory script (0.60), so it tests the pixels behind the
+reported number.
 
 ---
 
@@ -248,6 +260,11 @@ Before any curve is drawn, three filters run:
 - **Partial coverage.** A date is dropped if less than 80 % of the site's mask is
   clear. A partly clouded scene samples a *different set of fields*, not a random
   subsample. It was the leading cause of large day-to-day jumps.
+- **Cloud Score+ threshold.** A pixel is used only if its Cloud Score+
+  `cs_cdf` (a per-pixel clear-sky score, 0–1) is at least 0.60, Google's
+  suggested default within its 0.50–0.65 range. The cut extraction is the one
+  exception, at 0.50 (§5.2). The two values were inherited rather than chosen;
+  each is now set once in `config.yaml` and rendered into the scripts.
 - **Residual haze.** Cloud Score+ lets thin haze through, and haze leaves a
   fingerprint ordered by wavelength. Scattering inflates the short-wavelength
   bands, so red is hit hard, red-edge less, and SWIR hardly at all. One
@@ -365,6 +382,13 @@ An event is dated at the first observation that is clearly down. That point can
 be observed directly, so a human labelling by eye and the detector follow the
 same rule. It sits a median of about 3 days after the actual cut, equally in
 every year.
+
+The cut series are extracted at a Cloud Score+ threshold of 0.50, looser than
+the 0.60 used for condition. The detector was labelled, scored and frozen on
+series extracted at 0.50, so changing its input would invalidate the score it
+is quoted with. Cut timing also needs every usable date, and the bounce-back
+rule above rejects a single hazy one. The cost is that the cut series and the
+condition series are not built from exactly the same observations.
 
 ### 5.3 Validation, as a supervised-learning problem without a model
 
@@ -620,17 +644,10 @@ real result above stands or falls on the real data.
 
 - **Citation for the Sentinel-2 system MTF of 0.25 at Nyquist.** The whole of
   §2.3 rests on it.
-- **Purity sensitivity on the 10 m mask** (§2.5). The extraction script must use
-  `STRICT_PURITY = 0.0`, not 0.90: a strict floor of 0.90 restricts the test to
-  large fields and answers the wrong question. At Alpstein it must use the
-  summering window, DOY 196–258.
+- **Purity sensitivity on the 10 m mask** (§2.5). The script is ready: every
+  parcel admitted, the Alpstein summering window, Cloud Score+ 0.60.
 - **Cut extraction on the 10 m mask, full season** (§5.6), and with it the
   detector re-score.
 - **Re-measure the funnel and geometry** on the real data without the 0.25 ha
   filter (§2.1). Every number in §2.1, §2.2 and §2.4 is provisional until then.
-- **Unify the Cloud Score+ threshold.** It is 0.50 in the cut extraction and
-  the purity-sensitivity script, and 0.60 in the other three. Since step 7 the
-  values live in `config.yaml` (`gee.clear_threshold`) and are rendered into
-  the scripts, so the disagreement is visible and has one place to be
-  resolved. It is not resolved yet; the current values were kept so that the
-  2026 re-run is not affected.
+

@@ -49,8 +49,8 @@ SCRIPTS = {
     "gee_grassland_trajectory.js": ("PROJECT", "ASSETS", "CONFIG_HASH", "PURITY_MIN",
                                     "CLEAR_THRESHOLD", "MASK_BANDS", "REGIMES", "YEARS"),
     "gee_purity_sensitivity.js": ("PROJECT", "ASSETS", "CONFIG_HASH", "PURITY_MIN",
-                                  "CLEAR_THRESHOLD", "MASK_BANDS", "CODES", "YEAR_CUR",
-                                  "BASELINE_YEARS"),
+                                  "STRICT_PURITY", "CLEAR_THRESHOLD", "MASK_BANDS", "CODES",
+                                  "YEAR_CUR", "BASELINE_YEARS"),
     "gee_s2_hotspots.js": ("CLEAR_THRESHOLD", "YEAR_DRY", "BASELINE_YEARS"),
 }
 
@@ -58,6 +58,7 @@ COMMENTS = {
     "PROJECT": "Earth Engine project with the assets",
     "CONFIG_HASH": "settings + mask this copy was rendered with; goes into export names",
     "PURITY_MIN": "mask.purity_min",
+    "STRICT_PURITY": "gee.strict_purity: parcels with a cell this pure enter the test",
     "CLEAR_THRESHOLD": "Cloud Score+ cs_cdf, gee.clear_threshold",
     "MASK_BANDS": "band order of the mask raster, as written by build_mask()",
     "MOWN_CODES": "landuse.mown", "GRAZED_CODES": "landuse.grazed",
@@ -77,6 +78,7 @@ def _shared() -> dict:
     cur = int(CFG.project.current_year)
     return {
         "PURITY_MIN": CFG.mask.purity_min,
+        "STRICT_PURITY": CFG.gee.strict_purity,
         "MASK_BANDS": list(GROUPS),
         "MOWN_CODES": list(lu.mown),
         "GRAZED_CODES": list(lu.grazed),

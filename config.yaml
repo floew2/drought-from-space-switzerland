@@ -243,16 +243,25 @@ gee:
   assets:
     mask: grassland_mask_sg              # uploaded from data/masks/grassland_mask_sg.tif
     parcels: nutzungsflaechen_           # + year, e.g. nutzungsflaechen_2025
-  # Cloud Score+ cs_cdf threshold. OPEN: the scripts disagree, and these are
-  # their current values, rendered unchanged so the 2026 re-run is not affected.
-  # The cut extraction chose 0.50 for more dates in cloudy baseline years and
-  # filters residual haze downstream; the other three use 0.60.
+  # Cloud Score+ cs_cdf threshold: a pixel is used only if cs_cdf >= this.
+  # 0.60 everywhere except the cut extraction (decided 2026-10-12, METHOD §3.1, §5.2):
+  # - The frozen cut detector was labelled, scored and frozen on series
+  #   extracted at 0.50. Changing its input would invalidate that score.
+  #   0.50 also keeps more dates, which cut timing needs; the detector's
+  #   persistence rule rejects single hazy dates downstream.
+  # - The purity-sensitivity script tests the condition anomaly, so it must see
+  #   the same pixels as the trajectory script that produces it: 0.60 (was 0.50).
   clear_threshold:
     gee_cuts_extract: 0.50
-    gee_purity_sensitivity: 0.50
+    gee_purity_sensitivity: 0.60
     gee_grassland_trajectory: 0.60
     gee_grassland_map: 0.60
     gee_s2_hotspots: 0.60
+  # Purity sensitivity: a parcel enters the test if any cell inside it reaches
+  # this. 0.0 = every parcel, so the sweep covers the population the anomaly is
+  # reported for (HANDOVER §8). 0.90 restricts it to large compact fields and
+  # isolates contamination from composition; run it only if the 0.0 sweep drifts.
+  strict_purity: 0.0
 
 # --- provenance --------------------------------------------------------------
 provenance:

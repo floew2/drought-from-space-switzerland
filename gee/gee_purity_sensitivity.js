@@ -15,13 +15,14 @@
 //    Running the extraction five times would cost five times as much and tell
 //    us the same thing.
 //
-// 2. A FIXED PARCEL SET. Pure cells are not a random subset — they are the
-//    interiors of large, compact parcels. So if the anomaly drifts as the
-//    threshold falls, that could be contamination, or it could be that small
-//    fields simply behave differently. To separate them, only parcels that
-//    contain at least one cell above STRICT_PURITY are used, and the threshold
-//    is then varied WITHIN that fixed set. Composition stays constant, so any
-//    drift is contamination alone.
+// 2. WHICH PARCELS. Only parcels holding at least one cell >= STRICT_PURITY
+//    enter the test (gee.strict_purity in config.yaml). The default 0.0 admits
+//    every parcel, so the sweep answers the question the headline depends on:
+//    would the reported anomaly change if another threshold had been chosen,
+//    for the grassland it is reported for? At high thresholds small fields drop
+//    out, so a drift could be contamination or composition. If the curve
+//    drifts, re-run with strict_purity 0.90: within that fixed set of large
+//    fields composition is constant, and any remaining drift is contamination.
 // =============================================================================
 
 // ----------------------------------------------------------------------------
@@ -34,9 +35,10 @@ var PROJECT = "YOUR_EE_PROJECT";   // Earth Engine project with the assets
 var ASSETS = 'projects/' + PROJECT + '/assets/';
 var MASK_ASSET = ASSETS + "grassland_mask_sg";   // uploaded from build_mask()'s GeoTIFF
 var PARCEL_PREFIX = ASSETS + "nutzungsflaechen_";   // + year
-var CONFIG_HASH = "bdedabe82ea4";   // settings + mask this copy was rendered with; goes into export names
+var CONFIG_HASH = "3253fe2577fa";   // settings + mask this copy was rendered with; goes into export names
 var PURITY_MIN = 0.9;   // mask.purity_min
-var CLEAR_THRESHOLD = 0.5;   // Cloud Score+ cs_cdf, gee.clear_threshold
+var STRICT_PURITY = 0.0;   // gee.strict_purity: parcels with a cell this pure enter the test
+var CLEAR_THRESHOLD = 0.6;   // Cloud Score+ cs_cdf, gee.clear_threshold
 var MASK_BANDS = ["mown", "grazed", "intensive", "extensive"];   // band order of the mask raster, as written by build_mask()
 var CODES = {
   intensive: [613, 650],
@@ -53,14 +55,20 @@ var REGIME      = 'intensive';    // matches a mask band, see MASK_BANDS
 
 // YEAR_CUR, BASELINE_YEARS: rendered from config.yaml (project).
 
-var DOY_START = 121;   // 1 May
-var DOY_END   = 243;   // 31 Aug  — the window the anomaly is quoted over
+// The window the anomaly is quoted over. Alpstein is a summering area: the
+// season there is the grazing period, DOY 196-258, not May-August.
+var WINDOWS = {
+  linthebene: [121, 243],   // 1 May - 31 Aug
+  rheintal:   [121, 243],
+  alpstein:   [196, 258]    // 15 Jul - 15 Sep
+};
+var DOY_START = WINDOWS[ACTIVE_SITE][0];
+var DOY_END   = WINDOWS[ACTIVE_SITE][1];
 
 var INDEX_NAME = 'NDMI';
 
-// Parcels must hold at least one cell this pure to enter the fixed set.
-// Under the PSF formulation nothing reaches 1.0, so this cannot be 1.
-var STRICT_PURITY = 0.90;
+// STRICT_PURITY: rendered from config.yaml (gee.strict_purity). Under the PSF
+// formulation nothing reaches 1.0, so it must stay below 1.
 
 // Purity classes: 0.05-wide bins. Finer than the thresholds anyone would
 // actually choose, so the reconstructed curve is not limited by the binning.
@@ -104,9 +112,8 @@ var parcels = ee.FeatureCollection(PARCEL_ASSET)
   .filterBounds(aoi)
   .filter(ee.Filter.inList(FIELD_CODE, CODES[REGIME]));
 
-// A parcel qualifies if ANY cell inside it is at least STRICT_PURITY. Those are
-// the parcels large and compact enough to have a clean interior — and it is
-// exactly within these that the threshold is varied.
+// A parcel qualifies if ANY cell inside it is at least STRICT_PURITY. At 0.0
+// that is every parcel; at 0.90, the large compact fields with a clean interior.
 var qualified = purity.gte(STRICT_PURITY).reduceRegions({
   collection: parcels,
   reducer: ee.Reducer.max().setOutputs(['pure']),
@@ -115,13 +122,15 @@ var qualified = purity.gte(STRICT_PURITY).reduceRegions({
 
 print('Parcels in AOI:', parcels.size());
 print('With at least one cell >= ' + STRICT_PURITY + ':', qualified.size());
-print('^ the threshold is varied only WITHIN these, so composition is fixed ' +
-      'and any drift is contamination, not a change of sample.');
+print(STRICT_PURITY > 0
+  ? '^ fixed set: composition is constant, so any drift is contamination.'
+  : '^ every parcel: the sweep covers the reported population; a drift may be ' +
+    'contamination or composition (re-run with gee.strict_purity 0.90 to separate them).');
 
 var eligible = ee.Image(0).byte().paint(qualified, 1).selfMask();
-Map.addLayer(qualified, {color: '#3fb950'}, 'fixed parcel set', false);
+Map.addLayer(qualified, {color: '#3fb950'}, 'parcels in the test', false);
 
-// Purity class per cell: 0..N_CLASSES-1, restricted to the fixed set.
+// Purity class per cell: 0..N_CLASSES-1, restricted to those parcels.
 var pclass = purity.multiply(N_CLASSES).floor()
   .min(N_CLASSES - 1)
   .updateMask(purity.gt(0))
