@@ -47,14 +47,14 @@ def build() -> list[Path]:
     import matplotlib
 
     matplotlib.use("Agg")
-    from . import mask
+    from . import mask_figures
     from .config import CFG
 
     out = []
     model = DOCS / "model"
     model.mkdir(parents=True, exist_ok=True)
     tmp = model / "_psf_full.png"
-    mask.figure_psf(out=tmp)
+    mask_figures.figure_psf(out=tmp)
     _shrink(tmp, model / "psf.png")
     tmp.unlink()
     out.append(model / "psf.png")

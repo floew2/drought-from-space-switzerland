@@ -22,6 +22,7 @@ from . import (
     labelling,
     labels,
     mask,
+    mask_figures,
     metrics,
     precip,
     trajectory,
@@ -30,7 +31,7 @@ from .config import CFG, available, figures_dir, provenance, write_provenance
 
 __all__ = ["CFG", "available", "figures_dir", "provenance", "write_provenance",
            "changepoint", "clean", "config", "detect", "evaluate", "figures",
-           "io", "labels", "labelling", "mask", "metrics", "precip",
+           "io", "labels", "labelling", "mask", "mask_figures", "metrics", "precip",
            "trajectory",
            "load_site"]
 

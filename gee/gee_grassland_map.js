@@ -54,7 +54,7 @@ var assetForYear = function(year) {
   return 'projects/YOUR_EE_PROJECT/assets/nutzungsflaechen_' + year;
 };
 
-// The persistence raster built by build_grassland_mask.py. Parcel polygons come
+// The persistence raster built by drought.mask.build_mask(). Parcel polygons come
 // from the vector asset (this map is per-parcel), but the anomaly is computed
 // ONLY over pixels that were grassland in every year — otherwise a parcel that
 // was arable during part of the baseline gets a spurious anomaly.

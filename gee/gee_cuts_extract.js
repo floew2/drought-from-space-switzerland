@@ -53,7 +53,7 @@ var MOWN_CODES = [611, 612, 613, 634, 635, 650, 694,
 var PARCEL_ASSET = 'projects/YOUR_EE_PROJECT/assets/nutzungsflaechen_2025';
 var FIELD_CODE   = 'lnf_code';
 
-// Persistence raster from build_grassland_mask.py. Parcels supply the units,
+// Persistence raster from drought.mask.build_mask(). Parcels supply the units,
 // the raster restricts which pixels inside them count.
 var MASK_ASSET = 'projects/YOUR_EE_PROJECT/assets/grassland_mask_sg';
 // Four float bands of PSF-weighted purity 0-1, on the 10 m Sentinel grid.

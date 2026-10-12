@@ -86,26 +86,26 @@ def run(fresh: bool = False) -> dict:
         gen = {"note": "existing synthetic data reused; --fresh to regenerate"}
         print("synthetic data present — reusing (python -m drought.demo --fresh to regenerate)")
 
-    from drought import mask, precip, trajectory
+    from drought import mask, mask_figures, precip, trajectory
 
     summary = {"generator": gen}
 
     print("\n=== 1  grassland mask ==========================================")
-    master = mask.main()
+    master = mask.build_mask()
     truth = pd.read_csv(config.parcels_dir() / "parcels_truth.csv")
     summary["funnel"] = _funnel(master, truth)
-    area = mask.area_check(master=master)
+    area = mask_figures.area_check(master=master)
     summary["area_ratio"] = {n: (round(v["ratio"][0.0], 2), round(v["ratio"][0.9], 2))
                              for n, v in area.items()}
     summary["psf_model_check"] = {
         f"{c}@{t:g}": {k: round(float(v), 4) for k, v in row.items()}
         for (c, t), row in mask.psf_model_check(master).iterrows()}
-    summary["psf"] = mask.figure_psf()
-    summary["geometry"] = _geometry(mask.figure_parcel_size(master=master))
+    summary["psf"] = mask_figures.figure_psf()
+    summary["geometry"] = _geometry(mask_figures.figure_parcel_size(master=master))
     areas = {n: float(master[master["_code"].isin(c)].geometry.area.sum() / 1e4)
              for n, c in mask.GROUPS.items()}
-    mask.figure_purity_explainer(site="linthebene", group="intensive", areas=areas)
-    mask.figure_purity_map("linthebene", group="intensive")
+    mask_figures.figure_purity_explainer(site="linthebene", group="intensive", areas=areas)
+    mask_figures.figure_purity_map("linthebene", group="intensive")
 
     print("\n=== 2  grassland condition =====================================")
     traj = trajectory.plot(path=config.ROOT / config.CFG.paths.gee

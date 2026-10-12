@@ -96,7 +96,7 @@ that being true for **every** year, not just the current one.
    per year is fine; the search is recursive.
 2. Notebook chapter 3:
    ```python
-   from drought import mask; mask.main()
+   from drought import mask; mask.build_mask()
    ```
 3. Upload the resulting `data/masks/grassland_mask_sg.tif` to GEE as an **image
    asset** named `grassland_mask_sg`.

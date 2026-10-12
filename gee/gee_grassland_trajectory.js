@@ -1,7 +1,7 @@
 // =============================================================================
 // Grassland VI trajectory extraction — site-level seasonal curves
 //
-// Reads the mask asset built by mask.main() and uploaded by hand. Four float
+// Reads the mask asset built by drought.mask.build_mask() and uploaded by hand. Four float
 // bands of PSF-weighted purity 0-1 on the 10 m Sentinel grid; persistence is
 // already in the parcel selection, so the raster carries purity alone.
 //
@@ -54,12 +54,12 @@ if (SMOKE_TEST) {
   YEARS = [2025, 2026];
 }
 
-// ONE mask asset, built locally by build_grassland_mask.py and uploaded.
+// ONE mask asset, built locally by drought.mask.build_mask() and uploaded.
 // GeoTIFF band descriptions are not reliably carried into GEE, so the bands are
 // renamed explicitly here BY POSITION. Order must match the writer:
 //   b1 mown | b2 grazed | b3 intensive | b4 extensive
 var MASK_ASSET = 'projects/YOUR_EE_PROJECT/assets/grassland_mask_sg';
-// Band order must match what mask.main() printed — GEE names them b1..bN, so
+// Band order must match what drought.mask.build_mask() printed — GEE names them b1..bN, so
 // they are renamed BY POSITION. Do not reorder.
 // Four float bands of PSF-weighted purity 0-1, on the 10 m Sentinel grid.
 // Persistence is NOT in the raster — it is in the parcel selection that built

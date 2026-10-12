@@ -645,7 +645,7 @@ def figure_purity_sensitivity(site, regime="intensive", path=None, cfg=None,
     ax.set_title("How much data is left, and how close to the true area",
                  fontsize=11, fontweight="bold", color="white", loc="left")
 
-    # The area comparison lives in mask.area_check() now: it needs the master
+    # The area comparison lives in mask.area_table() / mask_figures.area_check() now: it needs the master
     # parcel set, which this module does not have.
 
     _style(axes)

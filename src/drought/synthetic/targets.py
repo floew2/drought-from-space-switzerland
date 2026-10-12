@@ -7,8 +7,8 @@ generator (to calibrate) and the demo report (to compare) do.
 
 Provenance keys:
     master    `mask.master_parcels()` on the 2017–2025 Nutzungsflächen, full extent
-    geometry  `mask.figure_parcel_size()` on the master set, full extent
-    area      `mask.area_check()`, clipped to the raster window
+    geometry  `mask_figures.figure_parcel_size()` on the master set, full extent
+    area      `mask.area_table()`, clipped to the raster window
     traj      `trajectory` season NDMI integral, 2026 against the 2019–2025 median
     precip    `precip.main()`, MeteoSwiss station St. Gallen, to 10 August 2026
     detect    `evaluate.score()` on 65 hand-labelled parcel-years — extractions on
