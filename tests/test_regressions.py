@@ -196,3 +196,31 @@ def test_config_round_trip():
     finally:
         config.activate("real")
     assert config.provenance()["config"] == before
+
+
+# --------------------------------------------------------------------------- #
+# Bug 13: the build summary divided clipped pixels by unclipped polygons
+# --------------------------------------------------------------------------- #
+def test_area_ratio_reference_is_clipped_to_the_raster():
+    """With mask.clip_bbox_lv95 set, parcels reach past the grid.
+
+    The first real build printed ratios at > 0 of 0.74 (grazed): summering
+    pastures lie mostly outside the clip box, so their polygon area counted
+    in the denominator while their pixels could not exist. Only the build's
+    own summary was affected; area_table always clipped.
+    """
+    from drought.mask.build import window_polygon_ha
+
+    geoms = _fields()
+    # a large field that lies mostly beyond the grid's right-hand edge
+    far = box(X0 + 4_000, Y0 + 200, X0 + 9_000, Y0 + 400)
+    geoms = [*geoms, far]
+    grid = (X0 - 100, Y0 + 600, 10.0)
+    shape = (90, int((X0 + 4_500 - grid[0]) / 10))          # ends 500 m into `far`
+
+    purity = mask.purity_psf(geoms, grid, shape)
+    observed = (purity > 0).sum() * 0.01
+    assert observed / window_polygon_ha(geoms, grid, shape) > 1.0
+
+    unclipped = sum(g.area for g in geoms) / 1e4             # the old denominator
+    assert observed / unclipped < 1.0

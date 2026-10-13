@@ -20,6 +20,7 @@ from .purity import psf_caption, psf_params, purity_psf
 from .settings import CLIP_BBOX_LV95, CRS, GROUPS, PURITY_MIN, RES, SUBPIXEL
 
 __all__ = ["area_table", "build_mask", "main", "output_grid", "psf_model_check",
+           "window_polygon_ha",
            "verify_mask"]
 
 
@@ -48,6 +49,29 @@ def output_grid(master: gpd.GeoDataFrame, verbose: bool = True) -> tuple[tuple, 
     width = int((np.ceil((x1 + pad) / RES) * RES - minx) / RES)
     height = int((maxy - np.floor((y0 - pad) / RES) * RES) / RES)
     return (minx, maxy, RES), (height, width)
+
+
+def window_polygon_ha(geoms, grid: tuple, shape: tuple) -> float:
+    """Polygon area [ha] inside the raster window.
+
+    The reference for an area ratio must cover the same ground as the raster.
+    With `mask.clip_bbox_lv95` set, parcels reach beyond the grid; their area
+    outside it exists as polygon but can never appear as pixels (bug 13).
+
+    Args:
+        geoms: Parcel geometries (EPSG:2056).
+        grid: (minx, maxy, res) as returned by `output_grid`.
+        shape: (height, width) of the raster.
+
+    Returns:
+        Area in hectares.
+    """
+    from shapely.geometry import box as _box
+
+    minx, maxy, res = grid
+    win = _box(minx, maxy - shape[0] * res, minx + shape[1] * res, maxy)
+    g = gpd.GeoSeries(geoms).intersection(win)
+    return float(g.area.sum() / 1e4)
 
 
 def psf_model_check(master: gpd.GeoDataFrame, thresholds: tuple[float, ...] = (0.0, 0.5, 0.9),
@@ -124,15 +148,16 @@ def build_mask(shp_dir: str | Path | None = None,
             print(f"  {name:<12}{'—':>9}")
             continue
         p = purity_psf(sub.geometry, grid, (height, width))
-        poly_ha = float(sub.geometry.area.sum() / 1e4)
+        poly_ha = window_polygon_ha(sub.geometry, grid, (height, width))
         h0 = float((p > 0).sum()) * cell_ha
         h9 = float((p >= PURITY_MIN).sum()) * cell_ha
         print(f"  {name:<12}{len(sub):>9,}{poly_ha:>12,.0f}{h0:>11,.0f}"
               f"{h0 / poly_ha:>7.2f}{h9:>13,.0f}{h9 / poly_ha:>7.2f}")
         bands.append((p, name))
 
-    print("\n  the ratio at >0 MUST exceed 1: the PSF response spreads beyond "
-          "every\n  boundary. If it does not, something is wrong.")
+    print("\n  polygon ha: inside the raster window. The ratio at >0 MUST exceed 1:\n"
+          "  the PSF response spreads beyond every boundary. If it does not,\n"
+          "  something is wrong.")
 
     out_tif = Path(out_tif) if out_tif else mask_path()
     write_raster(bands, grid, (height, width), out_tif)

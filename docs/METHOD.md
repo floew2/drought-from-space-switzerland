@@ -538,6 +538,7 @@ Found while packaging this repository:
 | 10 | "Purity ≥ 1" selected nothing | A threshold panel came out empty | float32 convolution leaves interior cells at 0.99999994. Purity is rounded to six decimals |
 | 11 | The 0.25 ha size filter also ran on **past** deliveries | The synthetic cadastre knows which fields are stable, and the persistence test still dropped some | A field whose redrawn outline dipped below 0.25 ha in one year, or which was split into parts below it, counted as "not grassland" that year. On the synthetic cadastre the old rule dropped 520 of 4,040 stable fields (all small) and retained 75.3 %. **Removed**, not patched: the filter duplicated purity's job ([§2.1](#21-which-fields-the-master-parcel-set)). With only the 0.05 ha sliver floor, the funnel recovers exactly what was planted (0 stable fields lost, 85.7 %), and the demo now fails if it does not. `sliver_floor_m2: 2500` reproduces the old behaviour |
 | 12 | Geometry repair silently halved figure-eight outlines | A regression test for bug 4's malformed rings, extended to keep area | `buffer(0)` ran first and "repaired" a self-crossing outline into a *valid* polygon with one lobe missing, so `make_valid`, which keeps both, never saw it. Order reversed: `make_valid` first, `buffer(0)` only as a fallback. The synthetic cadastre has no broken outlines, so the demo is unchanged; on the real deliveries the repair count is printed on every build |
+| 13 | The build summary divided **clipped** pixels by **unclipped** polygons | The first real build printed area ratios at > 0 below 1 (grazed 0.74, mown 1.32), which bug 1 established is impossible | With `mask.clip_bbox_lv95` set, parcels reach past the grid. Their outside area entered the denominator while their pixels could not exist; summering pastures, mostly outside the box, were hit hardest. Only the printed summary was wrong: the mask is unchanged (bit-identical), and `area_table`, which the figures and `results.json` use, always clipped. The summary now clips the same way |
 
 ---
 
@@ -548,6 +549,7 @@ test is shown to catch the bug, not merely to pass on the fixed code:
 | test | bug |
 |---|---|
 | `test_regressions.py::test_area_at_purity_zero_exceeds_polygon_area` | 1: halo zeroed; the old per-cell multiplication gives a ratio below 1 |
+| `test_regressions.py::test_area_ratio_reference_is_clipped_to_the_raster` | 13: the unclipped denominator gives a ratio below 1 |
 | `test_regressions.py::test_overlap_matching_on_a_subset_keeps_every_row` | 3: the old dict-built frame loses half the rows of a subset |
 | `test_regressions.py::test_geometry_repair_survives_pathological_rings` | 4 and 12: self-touching rings and figure-eights, with area kept |
 | `test_regressions.py::test_detector_*` | the drop-rate and persistence rules (§5.2): each test fires when its rule is switched off |
