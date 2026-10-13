@@ -129,12 +129,16 @@ Both write to Google Drive. Start the tasks, wait, download.
 Everything about grassland depends on knowing which pixels are grassland, and on
 that being true for **every** year, not just the current one.
 
-1. Put the yearly Nutzungsflaechen shapefiles in `data/nutzungen/`. One folder
-   per year is fine; the search is recursive.
-2. Notebook chapter 3:
-   ```python
-   from drought import mask; mask.build_mask()
+1. Put the yearly Nutzungsflaechen shapefiles in `data/nutzungen/`, 2017–2025,
+   named `nutzungen_<year>.shp` with their `.shx`, `.dbf` and `.prj`. One folder
+   per year is fine; the search is recursive. A year without a `.prj` is refused.
+2. Build:
+   ```bash
+   drought mask build      # prints the parcel funnel; writes the mask + its provenance record
+   drought mask figures    # parcel_size, area_check, purity explainer
    ```
+   GDAL warns about a handful of self-touching rings while reading; the build
+   repairs them (`make_valid`) and prints how many per year.
 3. Upload the resulting `data/masks/grassland_mask_sg.tif` to GEE as an **image
    asset** named `grassland_mask_sg`.
 
