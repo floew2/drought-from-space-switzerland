@@ -71,9 +71,13 @@ selected, and purity is computed from those polygons alone.
 - **There is no size filter.** Whether a field is large enough for Sentinel-2
   is decided by pixel purity (§2.3–2.4), and by nothing else. A field that
   yields no cell above the purity threshold drops out on its own. The only floor
-  is a **sliver floor at 0.05 ha**, applied in every year. It removes cadastral
-  offcuts (digitising leftovers and boundary slivers) that would corrupt the
-  area-overlap matching. It is named for that job, not for observability.
+  is a **sliver floor at 0.05 ha**, applied to the 2025 delivery only. It removes
+  cadastral offcuts (digitising leftovers and boundary slivers) from the set of
+  fields to analyse. It is named for that job, not for observability. It is
+  **not** applied to past deliveries. There a polygon of any size can only add
+  to the coverage a 2025 field is credited with, so a floor can only fail a
+  stable field whose outline was redrawn or split below it that year
+  ([§6](#6-bugs-found-by-checks), #14).
 
 An earlier version also applied a 0.25 ha filter, in every year. That was a
 second mechanism doing purity's job, and running it on past deliveries failed
@@ -536,9 +540,10 @@ Found while packaging this repository:
 | 8 | In the copy of the code handed over for packaging, `trajectory.py` still pooled intensive and extensive meadows | That copy could not produce the published figure's filename: pooling renames the regime before the file is named | One flag; now `analysis.merge_regimes`, off by default. Bug 6 again, caught by the same kind of check |
 | 9 | Tiled purity differed from single-pass purity by up to 0.15 | A test that the two must be equal | PIL's polygon fill places edge pixels differently depending on the window offset. Rasterisation moved to GDAL (rasterio), and the results are now identical |
 | 10 | "Purity ≥ 1" selected nothing | A threshold panel came out empty | float32 convolution leaves interior cells at 0.99999994. Purity is rounded to six decimals |
-| 11 | The 0.25 ha size filter also ran on **past** deliveries | The synthetic cadastre knows which fields are stable, and the persistence test still dropped some | A field whose redrawn outline dipped below 0.25 ha in one year, or which was split into parts below it, counted as "not grassland" that year. On the synthetic cadastre the old rule dropped 520 of 4,040 stable fields (all small) and retained 75.3 %. **Removed**, not patched: the filter duplicated purity's job ([§2.1](#21-which-fields-the-master-parcel-set)). With only the 0.05 ha sliver floor, the funnel recovers exactly what was planted (0 stable fields lost, 85.7 %), and the demo now fails if it does not. `sliver_floor_m2: 2500` reproduces the old behaviour |
+| 11 | The 0.25 ha size filter also ran on **past** deliveries | The synthetic cadastre knows which fields are stable, and the persistence test still dropped some | A field whose redrawn outline dipped below 0.25 ha in one year, or which was split into parts below it, counted as "not grassland" that year. On the synthetic cadastre the old rule dropped 520 of 4,040 stable fields (all small) and retained 75.3 %. **Removed**, not patched: the filter duplicated purity's job ([§2.1](#21-which-fields-the-master-parcel-set)). `sliver_floor_m2=2500, floor_past_years=True` reproduces the old behaviour |
 | 12 | Geometry repair silently halved figure-eight outlines | A regression test for bug 4's malformed rings, extended to keep area | `buffer(0)` ran first and "repaired" a self-crossing outline into a *valid* polygon with one lobe missing, so `make_valid`, which keeps both, never saw it. Order reversed: `make_valid` first, `buffer(0)` only as a fallback. The synthetic cadastre has no broken outlines, so the demo is unchanged; on the real deliveries the repair count is printed on every build |
 | 13 | The build summary divided **clipped** pixels by **unclipped** polygons | The first real build printed area ratios at > 0 below 1 (grazed 0.74, mown 1.32), which bug 1 established is impossible | With `mask.clip_bbox_lv95` set, parcels reach past the grid. Their outside area entered the denominator while their pixels could not exist; summering pastures, mostly outside the box, were hit hardest. Only the printed summary was wrong: the mask is unchanged (bit-identical), and `area_table`, which the figures and `results.json` use, always clipped. The summary now clips the same way |
+| 14 | The 0.05 ha sliver floor also ran on **past** deliveries | Recalibrating the synthetic cadastre to the real size distribution, which has many fields of 0.05–0.25 ha: 451 of 6,437 planted-stable fields failed persistence | Bug 11 at a smaller scale. A field redrawn or split below 0.05 ha in one year lost that year's coverage. The floor now applies to the 2025 delivery only, and synthetic losses fell to 128. Those are 23 fields whose 2025 outline came out below the floor, and 105 narrow strips (median shape index 14). Overlap matching cannot follow a strip a few metres wide through a 0.5 m redraw. **None of the 128 can hold a clean cell on its own** (highest own purity 0.76), so the analysed signal is unaffected; they leave only halo. The demo now fails if a lost stable field could hold a clean cell. The first real 10 m build (13 October) still had this floor on past deliveries; its funnel is superseded |
 
 ---
 
@@ -554,7 +559,7 @@ test is shown to catch the bug, not merely to pass on the fixed code:
 | `test_regressions.py::test_geometry_repair_survives_pathological_rings` | 4 and 12: self-touching rings and figure-eights, with area kept |
 | `test_regressions.py::test_detector_*` | the drop-rate and persistence rules (§5.2): each test fires when its rule is switched off |
 | `test_regressions.py::test_config_round_trip` | 6: provenance must describe the configuration that actually ran |
-| `test_master_parcels.py` | 11: a field redrawn and split below 0.25 ha keeps its history |
+| `test_master_parcels.py` | 11: a field redrawn and split below 0.25 ha keeps its history; 14: a split part below 0.05 ha in a past year does not fail the field |
 | `test_psf.py::test_implemented_response_has_the_stated_width` | 7: the response the code applies, measured |
 | `test_psf.py::test_tiled_purity_equals_single_pass` | 9 |
 | `test_cli.py::test_override_after_import_is_refused` | the stale-setting failure behind `assert_wired` (§5.3) |
@@ -605,22 +610,27 @@ in the same files and schemas, deterministically from one seed:
 
 | quantity | synthetic | real | |
 |---|---|---|---|
-| intensive median ha / < 0.5 ha / shape | 1.11 / 21 % / 5.72 | 1.11 / 21 % / 5.72 | calibrated |
-| extensive median ha / < 0.5 ha / shape | 0.45 / 58 % / 6.29 | 0.45 / 58 % / 6.29 | calibrated |
-| mown median ha / < 0.5 ha / shape | 0.93 / 26 % / 5.80 | 0.93 / 26 % / 5.80 | emergent |
+| intensive median ha / < 0.5 ha / shape | 0.69 / 41 % / 5.53 | 0.67 / 42 % / 5.56 | calibrated |
+| extensive median ha / < 0.5 ha / shape | 0.20 / 84 % / 6.34 | 0.19 / 85 % / 6.43 | calibrated |
+| mown median ha / < 0.5 ha / shape | 0.46 / 52 % / 5.73 | 0.43 / 54 % / 5.75 | emergent |
 | integrals (four) | −33 / −35 / −23 / −30 %, rank 1/8 | same | calibrated |
 | precipitation, P − ET0 to 10 Aug | 501 mm, −84 mm | same | calibrated |
-| area ratio intensive, > 0 / ≥ 0.9 | 1.41 / 0.78 | 1.54 / 0.84 | emergent |
-| area ratio extensive, > 0 / ≥ 0.9 | 2.73 / 0.48 | 3.40 / 0.56 | emergent |
-| master set retained | 85.7 % | 86.0 % (old filter, provisional) | emergent |
+| area ratio intensive, > 0 / ≥ 0.9 | 1.53 / 0.75 | 1.47 / 0.80 | emergent |
+| area ratio extensive, > 0 / ≥ 0.9 | 3.27 / 0.36 | 3.61 / 0.45 | emergent |
+| master set retained | 79.1 % | 80.9 %\* | planted |
 | detector F1, heuristic / changepoint | 0.87–0.90 / 0.80–0.83 | 0.91 / 0.87 | emergent |
 
-The synthetic cadastre contains no fields below 0.25 ha, because the real
-geometry targets were measured on fields above that size. So it shows the effect
-of removing the filter on *persistence*, but not on the *parcel count*. On the
-real data the count will grow by the grassland fields between 0.05 and 0.25 ha,
-a number nobody has measured yet. Purity then decides which of them contribute
-cells.
+\* First 10 m build, which still applied the sliver floor to past deliveries
+(#14). The real geometry and area ratios come from the same build; they are
+re-measured on the corrected rule.
+
+The synthetic cadastre is calibrated to the real size distribution down to the
+0.05 ha floor, so it has the many small fields the old filter removed. That is
+how bug 14 surfaced: a floor on past deliveries fails small fields that were
+redrawn or split. Under the corrected rule the funnel recovers what was planted,
+with one class of exception that the demo reports and does not fail. Strips a
+few metres wide cannot be followed through a redraw by 80 % overlap. None of
+them can hold a clean cell, so they cost halo, not signal.
 
 *Calibrated* means the generator was solved to reproduce the real value, so a
 match only shows the pipeline is wired correctly. *Emergent* means the method

@@ -28,7 +28,7 @@ from scipy import optimize, stats
 
 from . import targets as T
 
-MIN_HA = 0.25                 # the master set's own lower bound
+MIN_HA = 0.05                 # the master set's own lower bound: mask.sliver_floor_m2
 YEARS = list(range(2017, 2026))
 CRS = "EPSG:2056"
 
@@ -50,12 +50,13 @@ NON_GRASS_CODES = [601, 602]              # Kunstwiese: temporary ley, excluded
 # other" out of mown is not, and is fixed here so that every total matches:
 #   extensive = Em + Eg, mown = I + Em + Mo, grazed = Eg + Go + S.
 _E_G = 400
+_C = T.CATEGORY_TOTALS
 MASTER_COUNTS = {
-    "I": 23_758,
-    "Em": 4_348 - _E_G,
+    "I": _C["intensive"][0],
+    "Em": _C["extensive"][0] - _E_G,
     "Eg": _E_G,
-    "Mo": 28_112 - 23_758 - (4_348 - _E_G),
-    "Go": 6_474 - _E_G - T.FUNNEL["exempt_930"],
+    "Mo": _C["mown"][0] - _C["intensive"][0] - (_C["extensive"][0] - _E_G),
+    "Go": _C["grazed"][0] - _E_G - T.FUNNEL["exempt_930"],
     "S": T.FUNNEL["exempt_930"],
 }
 
@@ -115,7 +116,7 @@ def fit_area(median_ha: float, lt_05: float, mean_ha: float | None = None
              ) -> tuple[float, float, float]:
     """Truncated lognormal with this median, P(< 0.5 ha) and, optionally, mean.
 
-    The lower bound is fixed at 0.25 ha. Median and the small-parcel share fix
+    The lower bound is fixed at the sliver floor, 0.05 ha. Median and the small-parcel share fix
     the lognormal; if the mean is given too, an upper bound is fitted as the
     third parameter — an untruncated tail overshoots the real mean by a third
     for intensive meadows (2.4 ha against 1.77 ha).
@@ -199,7 +200,7 @@ def shape_sigma(median_shape: float) -> float:
 
     The shape index is modelled as 4 + X, X lognormal with median
     (median_shape - 4). Its spread is set by the one tail statistic known from
-    the real data: about two parcels in 5,000 exceed 16.
+    the real data: the share of parcels above 16 (targets.SHAPE_TAIL_GT16).
     """
     z = stats.norm.isf(T.SHAPE_TAIL_GT16)
     return float(np.log(12.0 / (median_shape - 4.0)) / z)
@@ -403,10 +404,11 @@ def deliveries(df: pd.DataFrame, rng: np.random.Generator):
                                       (p.x, r.y + p.h), (p.x, r.y + r.h),
                                       (r.x, r.y + r.h)]).buffer(0), k))
             elif not latest and rng.uniform() < P_SPLIT:
-                # Any field can be split, small ones included; a part is never
-                # below 30 % of the field, so never below the 0.05 ha sliver
-                # floor. (Under the old 0.25 ha filter on past deliveries, such
-                # splits wrongly failed their parent — METHOD §6, #11.)
+                # Any field can be split, small ones included, and a part may
+                # fall below the 0.05 ha sliver floor. The floor applies to the
+                # current delivery only, so the parent keeps its history.
+                # (A floor on past deliveries failed such fields — METHOD §6,
+                # #11 at 0.25 ha, #14 at 0.05 ha.)
                 t = rng.uniform(0.3, 0.7) * r.w
                 items.append((r.site, box(r.x, r.y, r.x + t, r.y + r.h), k))
                 items.append((r.site, box(r.x + t, r.y, r.x + r.w, r.y + r.h), k))

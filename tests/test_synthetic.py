@@ -47,7 +47,9 @@ def test_area_fit_hits_median_small_share_and_mean():
     ("intensive", {"I"}), ("extensive", {"Em", "Eg"}), ("grazed", {"Eg", "Go", "S"}),
 ])
 def test_population_matches_the_real_geometry(population, cat, components):
-    sub = population[population.component.isin(components)]
+    # The targets describe the MASTER set: the parcels planted to survive it.
+    master = population[population.status.isin(["stable", "exempt_930"])]
+    sub = master[master.component.isin(components)]
     area = sub.w * sub.h / 1e4
     shape = _shape_index(sub.w, sub.h)
     tgt = T.GEOMETRY[cat]
@@ -59,8 +61,9 @@ def test_population_matches_the_real_geometry(population, cat, components):
 
 def test_shape_index_has_the_long_upper_tail(population):
     shape = _shape_index(population.w, population.h)
-    assert 0.005 < (shape > 10).mean() < 0.10          # a minority exceed 10
-    assert (shape > 16).sum() <= 6                     # ~2 in 5,000 exceed 16
+    assert 0.03 < (shape > 10).mean() < 0.20           # a minority exceed 10
+    # the one real tail statistic: 2.3 % exceed 16 (narrow strips)
+    assert (shape > 16).mean() == pytest.approx(T.SHAPE_TAIL_GT16, abs=0.005)
 
 
 def test_generation_is_deterministic():

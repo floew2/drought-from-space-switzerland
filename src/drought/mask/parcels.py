@@ -250,7 +250,8 @@ def _overlap_years(cur: gpd.GeoDataFrame, past: gpd.GeoDataFrame, codes,
 
 def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
                    min_overlap: float | None = None, min_years: int | None = None,
-                   sliver_floor_m2: float | None = None) -> gpd.GeoDataFrame:
+                   sliver_floor_m2: float | None = None,
+                   floor_past_years: bool = False) -> gpd.GeoDataFrame:
     """Parcels that were grassland, and the same category, in earlier years.
 
     MATCHED BY OVERLAP, NOT BY IDENTITY. Parcel outlines are redrawn between
@@ -271,20 +272,23 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
     exempt — they appear only in the most recent delivery, so there is nothing
     to check them against.
 
-    THERE IS NO SIZE FILTER. Polygons below `sliver_floor_m2` (0.05 ha) are
-    dropped as cadastral offcuts, in every year, so they cannot corrupt the
-    overlap matching. Whether a field is large enough for Sentinel-2 is left to
-    pixel purity, which already removes a field that yields no clean cell. An
-    earlier 0.25 ha filter duplicated that job and, applied to past deliveries,
-    failed stable fields whose redrawn outline dipped below it in one year.
+    THERE IS NO SIZE FILTER. Current parcels below `sliver_floor_m2` (0.05 ha)
+    are dropped as cadastral offcuts: they are not fields to analyse. The floor
+    applies to the CURRENT delivery only. In a past delivery, a polygon of any
+    size can only add to the coverage a current field is credited with, so
+    dropping it can only fail a stable field whose outline was redrawn or split
+    below the floor that year (METHOD §6, #11 and #14). Whether a field is large
+    enough for Sentinel-2 is left to pixel purity.
 
     Args:
         shp_dir: Folder with the yearly shapefiles (default: config).
         verbose: Print the funnel.
         min_overlap: Share of a field that must lie inside a year's category.
         min_years: Years the category must be held (0/None = all).
-        sliver_floor_m2: Override the sliver floor; 2500 reproduces the old
-            0.25 ha behaviour.
+        sliver_floor_m2: Override the sliver floor.
+        floor_past_years: Also apply the floor to past deliveries. Off by
+            default; with `sliver_floor_m2=2500` it reproduces the old 0.25 ha
+            filter (#11), and with the default floor the first 10 m build (#14).
 
     Returns:
         The master parcel set, EPSG:2056, with `_code` and `_cat`. The funnel
@@ -321,7 +325,8 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
         if verbose:
             print(f"  overlaying {y}...", end="", flush=True)
         g = load_year(files[y])
-        g = g[g.geometry.area >= floor]
+        if floor_past_years:
+            g = g[g.geometry.area >= floor]
 
         n_grass += (_overlap_years(cur, g, grass_codes, min_overlap)
                     >= min_overlap).astype(int)
@@ -348,6 +353,7 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
     held_all = int(((n_same >= len(years)) & ~grandfathered).sum())
     out.attrs["funnel"] = {
         "year": int(cur_year), "grassland": int(n0), "sliver_floor_m2": float(floor),
+        "floor_past_years": bool(floor_past_years),
         "dropped_not_grassland": lost_grass, "dropped_changed_category": lost_cat,
         "exempt": int(grandfathered.sum()), "remain": len(out),
         "remain_share": round(len(out) / max(n0, 1), 4),
@@ -384,7 +390,8 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
 
 
 def category_history(shp_dir: str | Path | None = None, min_overlap: float | None = None,
-                     verbose: bool = True, sliver_floor_m2: float | None = None) -> pd.DataFrame:
+                     verbose: bool = True, sliver_floor_m2: float | None = None,
+                     floor_past_years: bool = False) -> pd.DataFrame:
     """How many years each current parcel held its category, by area overlap.
 
     The companion to `master_parcels`: the same matching, reporting the whole
@@ -396,7 +403,8 @@ def category_history(shp_dir: str | Path | None = None, min_overlap: float | Non
         shp_dir: Folder with the yearly shapefiles (default: config).
         min_overlap: Share of a field that must lie inside a year's category.
         verbose: Print the distribution and what each rule would keep.
-        sliver_floor_m2: Override the sliver floor (2500 = old behaviour).
+        sliver_floor_m2: Override the sliver floor.
+        floor_past_years: Also apply the floor to past deliveries (old behaviour).
 
     Returns:
         DataFrame per current parcel: area_ha, cat, years_grassland,
@@ -430,7 +438,8 @@ def category_history(shp_dir: str | Path | None = None, min_overlap: float | Non
         if verbose:
             print(f"  overlaying {y}...", end="", flush=True)
         g = load_year(files[y])
-        g = g[g.geometry.area >= floor]
+        if floor_past_years:
+            g = g[g.geometry.area >= floor]
         n_grass += (_overlap_years(cur, g, grass_codes, min_overlap)
                     >= min_overlap).astype(int)
         for c in cats:

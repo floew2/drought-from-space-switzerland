@@ -24,21 +24,55 @@ import numpy as np
 import pandas as pd
 
 
+def _max_own_purity(geom) -> float:
+    """The highest purity a parcel reaches on its own: can it host a clean cell?"""
+    from drought.mask import RES, purity_psf
+
+    pad = 40.0
+    x0, y0, x1, y1 = geom.bounds
+    minx, maxy = np.floor((x0 - pad) / RES) * RES, np.ceil((y1 + pad) / RES) * RES
+    shape = (int((maxy - np.floor((y0 - pad) / RES) * RES) / RES),
+             int((np.ceil((x1 + pad) / RES) * RES - minx) / RES))
+    return float(purity_psf([geom], (minx, maxy, RES), shape).max())
+
+
 def _funnel(master, truth: pd.DataFrame) -> dict:
-    """The master-set funnel, against what the generator actually planted."""
+    """The master-set funnel, against what the generator actually planted.
+
+    Two outcomes are not errors and are reported, not failed: a planted-stable
+    parcel whose 2025 outline came out below the sliver floor, and one that
+    overlap matching cannot follow because it is a strip too narrow to survive
+    a redraw. Both must be unobservable on their own (no cell reaching
+    mask.purity_min); a lost parcel that could hold a clean cell is a failure.
+    """
+    from drought import config
+    from drought.mask import PURITY_MIN, SLIVER_FLOOR_M2
+    from drought.mask.parcels import _year_files, load_year
+
     kept = set(master["objectid"].astype(int))
     t = truth.assign(kept=truth.objectid.astype(int).isin(kept))
-    by = t.groupby("status").kept.agg(["size", "sum"])
-    stable = by.loc["stable"] if "stable" in by.index else pd.Series({"size": 0, "sum": 0})
-    lost_stable = t[(t.status == "stable") & ~t.kept]
+    lost = t[(t.status == "stable") & ~t.kept]
+    wrong = t[t.kept & ~t.status.isin(["stable", "exempt_930"])]
+    g25 = load_year(_year_files(config.parcels_dir())[max(_year_files(config.parcels_dir()))])
+    geom = g25.set_index(g25["objectid"].astype(int)).geometry
+    lg = geom.reindex(lost.objectid.astype(int))
+    below = (lg.area < SLIVER_FLOOR_M2).to_numpy()
+    own = np.array([_max_own_purity(g) for g in lg]) if len(lg) else np.array([])
+    shp = (lg.length / np.sqrt(lg.area)).to_numpy() if len(lg) else np.array([])
     return {
         "grassland_2025": int(len(t)),
         "remain": int(t.kept.sum()),
         "remain_share": round(float(t.kept.mean()), 3),
         "planted": {k: int(v) for k, v in t.status.value_counts().items()},
-        "stable_dropped": int(stable["size"] - stable["sum"]),
-        "stable_dropped_max_ha": round(float(lost_stable.area_ha.max()), 3)
-        if len(lost_stable) else None,
+        "kept_not_planted_stable": int(len(wrong)),
+        "stable_dropped": int(len(lost)),
+        "stable_dropped_below_floor": int(below.sum()),
+        "stable_dropped_unmatched": int((~below).sum()),
+        "stable_dropped_unmatched_median_shape": round(float(np.median(shp[~below])), 1)
+        if (~below).any() else None,
+        "stable_dropped_max_own_purity": round(float(own.max()), 3) if len(own) else None,
+        "stable_dropped_observable": int((own >= PURITY_MIN).sum()),
+        "stable_dropped_ha": round(float(lost.area_ha.sum()), 1),
     }
 
 
@@ -167,12 +201,15 @@ def check(s: dict, T) -> list[str]:
     """
     bad = []
     fn = s["funnel"]
-    if fn["remain"] != fn["planted"].get("stable", 0) + fn["planted"].get("exempt_930", 0):
-        bad.append(f"master set kept {fn['remain']} parcels, planted stable + exempt "
-                   f"{fn['planted']}")
-    if s["funnel"]["stable_dropped"]:
-        bad.append(f"{s['funnel']['stable_dropped']} parcels planted as stable failed the "
-                   "persistence test: the funnel must recover exactly what was planted")
+    if fn["kept_not_planted_stable"]:
+        bad.append(f"{fn['kept_not_planted_stable']} parcels kept that were planted as "
+                   "changed or not grassland: persistence must reject every one")
+    if fn["remain"] + fn["stable_dropped"] != (fn["planted"].get("stable", 0)
+                                               + fn["planted"].get("exempt_930", 0)):
+        bad.append(f"master set kept {fn['remain']} parcels; planted {fn['planted']}")
+    if fn["stable_dropped_observable"]:
+        bad.append(f"{fn['stable_dropped_observable']} stable parcels that could hold a "
+                   "clean cell failed the persistence test")
     for (site, reg), v in T.INTEGRAL_PCT.items():
         t = s["trajectory"].get(f"{site}/{reg}")
         if t is None or abs(t["integral_pct"] - v) > 0.5 or t["rank"] != 1:
@@ -215,7 +252,7 @@ def _report(s: dict, T) -> None:
             f"{r0:.2f} / {r9:.2f}", "emergent")
     f = s["funnel"]
     add("mask", "master set retained", f"{f['remain_share']:.1%}",
-        f"{T.FUNNEL['remain'] / T.FUNNEL['grassland_2025']:.1%} (old filter)", "emergent")
+        f"{T.FUNNEL['remain'] / T.FUNNEL['grassland_2025']:.1%}", "planted")
     for (site, reg), v in T.INTEGRAL_PCT.items():
         t = s["trajectory"].get(f"{site}/{reg}")
         if t:
@@ -245,8 +282,12 @@ def _report(s: dict, T) -> None:
           + ", ".join(f"{k} {v}" for k, v in f["planted"].items())
           + ".")
     if f["stable_dropped"]:
-        print(f"  {f['stable_dropped']} parcels planted as stable were dropped anyway "
-              f"(largest {f['stable_dropped_max_ha']} ha).")
+        print(f"  {f['stable_dropped']} parcels planted as stable were not kept "
+              f"({f['stable_dropped_ha']} ha): {f['stable_dropped_below_floor']} came out "
+              f"below the sliver floor in 2025, {f['stable_dropped_unmatched']} are strips "
+              f"overlap matching cannot follow through a redraw (median shape index "
+              f"{f['stable_dropped_unmatched_median_shape']}). None can hold a clean cell "
+              f"on its own: highest own purity {f['stable_dropped_max_own_purity']}.")
 
 
 def main(argv=None) -> None:

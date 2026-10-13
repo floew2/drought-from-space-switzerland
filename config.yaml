@@ -72,14 +72,14 @@ mask:
   res: 10                # 10 m, matching the Sentinel-2 grid. Was 20 m, which
                          # gave a 0.44 ha parcel only 11 cells; at 10 m it has
                          # 44, so edge effects are resolved rather than assumed.
-  # SLIVER FLOOR, not a size filter. Polygons below 0.05 ha are cadastral
-  # offcuts (digitising leftovers, boundary slivers) that would corrupt the
-  # area-overlap matching. Whether a field is big enough for Sentinel-2 is NOT
-  # decided here: PSF purity decides that — a field too small for the sensor
-  # yields no cell above the purity threshold and drops out on its own.
-  # (An earlier 0.25 ha filter did the same job twice, and because it also ran
-  # on past deliveries it dropped stable fields whose redrawn outline dipped
-  # below 0.25 ha in one year. Set 2500 here to reproduce that behaviour.)
+  # SLIVER FLOOR, not a size filter. 2025 polygons below 0.05 ha are cadastral
+  # offcuts (digitising leftovers, boundary slivers), not fields to analyse.
+  # Applied to the 2025 delivery ONLY: in a past delivery a polygon of any size
+  # can only add coverage, so a floor there fails stable fields that were
+  # redrawn or split below it (METHOD §6, #11 at 0.25 ha, #14 at 0.05 ha).
+  # Whether a field is big enough for Sentinel-2 is NOT decided here: PSF
+  # purity decides that — a field too small for the sensor yields no cell above
+  # the purity threshold and drops out on its own.
   sliver_floor_m2: 500   # 0.05 ha
   subpixel: 4            # sub-cells per side: 4 -> 2.5 m within a 10 m cell
 
