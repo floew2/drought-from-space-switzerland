@@ -48,10 +48,56 @@ class Config(SimpleNamespace):
         return node
 
 
-def load(path: str | Path | None = None) -> Config:
+# A machine's own Earth Engine project and bucket live in config.local.yaml,
+# which git ignores. It may set WHERE things are, never HOW they are computed:
+# a method setting in an uncommitted file would be a result nobody can reproduce.
+LOCAL_FILE = "config.local.yaml"
+LOCAL_KEYS = ("gee.project", "gee.bucket", "gee.bucket_prefix")
+
+
+def _overlay_local(raw: dict, local: Path) -> dict:
+    with open(local) as f:
+        extra = yaml.safe_load(f) or {}
+
+    def flat(d, pre=""):
+        for k, v in d.items():
+            if isinstance(v, dict):
+                yield from flat(v, f"{pre}{k}.")
+            else:
+                yield f"{pre}{k}", v
+
+    for key, value in flat(extra):
+        if key not in LOCAL_KEYS:
+            raise ValueError(f"{local.name} may set only {', '.join(LOCAL_KEYS)}; "
+                             f"{key!r} belongs in config.yaml, where it is versioned")
+        node = raw
+        *parents, leaf = key.split(".")
+        for part in parents:
+            node = node[part]
+        node[leaf] = value
+    return raw
+
+
+def load(path: str | Path | None = None, local: bool = True) -> Config:
+    """Read config.yaml (or `path`), plus config.local.yaml's machine settings.
+
+    Args:
+        path: Another configuration file instead of config.yaml.
+        local: Apply config.local.yaml if it exists (default configuration only).
+
+    Returns:
+        The configuration.
+
+    Raises:
+        ValueError: If config.local.yaml sets anything but LOCAL_KEYS.
+    """
+    default = path is None
     path = Path(path) if path else ROOT / "config.yaml"
     with open(path) as f:
-        return Config(yaml.safe_load(f))
+        raw = yaml.safe_load(f)
+    if default and local and (ROOT / LOCAL_FILE).exists():
+        raw = _overlay_local(raw, ROOT / LOCAL_FILE)
+    return Config(raw)
 
 
 CFG = load()

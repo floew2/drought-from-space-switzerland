@@ -1,26 +1,23 @@
-"""Render Earth Engine settings from config.yaml into the scripts in gee/.
+"""Render Earth Engine settings from config.yaml into the interactive scripts.
 
-Every setting the scripts share with the Python side — the purity threshold,
-the mask band order, the land-use code lists, the years, the Cloud Score+
-threshold — is written into a marked block at the top of each script. The
-scripts no longer define these values themselves, so they cannot drift from
-config.yaml. CI runs `drought gee render --check` and fails if a committed
-script differs from what the renderer produces.
+The three EXPORTS (trajectory, purity sensitivity, cut series) run from Python,
+in `drought.engine`; they read config.yaml directly. What remains in gee/ are
+two interactive Code Editor scripts, a map and a hotspot view, that are run by
+hand to look at things. Their shared settings (the purity threshold, mask band
+order, land-use codes, years, Cloud Score+ threshold) are written into a marked
+block at the top of each, so they cannot drift from config.yaml. CI runs
+`drought gee render --check` and fails if a committed script differs.
 
-Two kinds of output:
-
-gee/*.js            committed. The Earth Engine project is a placeholder and no
-                    mask is assumed, so the files carry nothing private and are
-                    reproducible anywhere.
+gee/*.js            committed. The Earth Engine project is a placeholder.
 <out>/*.js          for pasting into the Code Editor: `drought --set
-                    gee.project=<project> gee render --out output/gee`. Carries
-                    the real project and the fingerprint of the local mask.
+                    gee.project=<project> gee render --out output/gee`.
 
-Each rendered copy has a CONFIG_HASH: a hash of every rendered setting plus the
-mask fingerprint. The data exports put it in their file names, so registering
-a download (`drought provenance register`) can tell whether the export ran
-under the current settings and mask. Every hash rendered is kept in
-`<out>/manifest.json` with its settings, so a mismatch can name what changed.
+The CONFIG_HASH is a hash of every Earth Engine setting (including those the
+Python exports use) plus the local mask's fingerprint. Exports put it in their
+file names, so registering a download can tell whether it ran under the
+current settings and mask. Every hash produced is kept in
+`output/gee/manifest.json` with its settings, so a mismatch can name what
+changed.
 """
 
 from __future__ import annotations
@@ -41,18 +38,16 @@ PLACEHOLDER = "YOUR_EE_PROJECT"
 # Which generated variables each script receives. gee_switzerland_rgb.js is not
 # rendered: it is MODIS, with a deliberately different baseline (2011-2020).
 SCRIPTS = {
-    "gee_cuts_extract.js": ("PROJECT", "ASSETS", "CONFIG_HASH", "PURITY_MIN",
-                            "CLEAR_THRESHOLD", "MASK_BANDS", "MOWN_CODES"),
     "gee_grassland_map.js": ("PROJECT", "ASSETS", "CONFIG_HASH", "PURITY_MIN",
                              "CLEAR_THRESHOLD", "MASK_BANDS", "MOWN_CODES", "GRAZED_CODES",
                              "YEAR_DRY", "BASELINE_YEARS"),
-    "gee_grassland_trajectory.js": ("PROJECT", "ASSETS", "CONFIG_HASH", "PURITY_MIN",
-                                    "CLEAR_THRESHOLD", "MASK_BANDS", "REGIMES", "YEARS"),
-    "gee_purity_sensitivity.js": ("PROJECT", "ASSETS", "CONFIG_HASH", "PURITY_MIN",
-                                  "STRICT_PURITY", "CLEAR_THRESHOLD", "MASK_BANDS", "CODES",
-                                  "YEAR_CUR", "BASELINE_YEARS"),
     "gee_s2_hotspots.js": ("CLEAR_THRESHOLD", "YEAR_DRY", "BASELINE_YEARS"),
 }
+# gee.clear_threshold key of each script.
+CLEAR_KEY = {"gee_grassland_map.js": "map", "gee_s2_hotspots.js": "hotspots"}
+# Settings of the Python exports that enter the CONFIG_HASH.
+ENGINE_KEYS = ("gee.clear_threshold", "gee.strict_purity", "gee.parcels_year",
+               "gee.trajectory", "gee.sensitivity", "gee.cuts")
 
 COMMENTS = {
     "PROJECT": "Earth Engine project with the assets",
@@ -100,9 +95,9 @@ def render_settings(with_mask: bool = True) -> dict:
     from .provenance import mask_fingerprint
 
     out = {k: v for k, v in _shared().items()}
-    for script in SCRIPTS:
-        out[f"CLEAR_THRESHOLD.{Path(script).stem}"] = getattr(
-            CFG.gee.clear_threshold, Path(script).stem)
+    for key in ENGINE_KEYS:
+        v = CFG.get(key)
+        out[key] = v.to_dict() if hasattr(v, "to_dict") else v
     fp = mask_fingerprint() if with_mask else None
     out["mask.sha256"] = fp["sha256"] if fp else None
     return out
@@ -118,7 +113,7 @@ def _values(script: str, project: str | None, config_hash: str) -> dict:
     v = _shared()
     v["PROJECT"] = project or PLACEHOLDER
     v["CONFIG_HASH"] = config_hash
-    v["CLEAR_THRESHOLD"] = getattr(CFG.gee.clear_threshold, Path(script).stem)
+    v["CLEAR_THRESHOLD"] = getattr(CFG.gee.clear_threshold, CLEAR_KEY[script])
     return {k: v[k] for k in SCRIPTS[script] if k != "ASSETS"}
 
 

@@ -232,36 +232,76 @@ synthetic:
     tables: output/synthetic/tables
 
 # --- Earth Engine ------------------------------------------------------------
-# `drought gee render` writes these into a generated block at the top of each
-# script in gee/, so a threshold has one value in one place. CI checks that the
-# committed scripts match what the renderer produces.
+# Read directly by the Python exports (`drought ee …`, src/drought/engine/).
+# `drought gee render` writes the shared ones into the two interactive scripts
+# in gee/, and CI checks that the committed scripts match.
 gee:
-  # The Earth Engine project holding the assets. Empty on purpose: the committed
-  # scripts carry a placeholder. For a copy to paste into the Code Editor:
-  #   drought --set gee.project=<your-project> gee render --out output/gee
+  # The Earth Engine project holding the assets, and a Cloud Storage bucket in
+  # it. Empty on purpose: they are yours, not the repository's. Set them in a
+  # local file that is not committed, e.g. config.local.yaml:
+  #   gee: {project: <your-project>, bucket: <your-bucket>}
+  # and run `drought --config config.local.yaml ee ...`.
   project: null
+  bucket: null
+  bucket_prefix: drought-from-space     # every object this pipeline writes lives under here
   assets:
-    mask: grassland_mask_sg              # uploaded from data/masks/grassland_mask_sg.tif
+    mask: grassland_mask_sg              # uploaded by `drought ee upload-mask`
     parcels: nutzungsflaechen_           # + year, e.g. nutzungsflaechen_2025
+  parcels_year: 2025                     # the cadastre the per-parcel work runs on
+  parcel_code_field: lnf_code
   # Cloud Score+ cs_cdf threshold: a pixel is used only if cs_cdf >= this.
   # 0.60 everywhere except the cut extraction (decided 2026-10-12, METHOD §3.1, §5.2):
   # - The frozen cut detector was labelled, scored and frozen on series
   #   extracted at 0.50. Changing its input would invalidate that score.
   #   0.50 also keeps more dates, which cut timing needs; the detector's
   #   persistence rule rejects single hazy dates downstream.
-  # - The purity-sensitivity script tests the condition anomaly, so it must see
-  #   the same pixels as the trajectory script that produces it: 0.60 (was 0.50).
+  # - The purity sensitivity tests the condition anomaly, so it must see the
+  #   same pixels as the trajectory that produces it: 0.60 (was 0.50).
   clear_threshold:
-    gee_cuts_extract: 0.50
-    gee_purity_sensitivity: 0.60
-    gee_grassland_trajectory: 0.60
-    gee_grassland_map: 0.60
-    gee_s2_hotspots: 0.60
+    cuts: 0.50
+    sensitivity: 0.60
+    trajectory: 0.60
+    map: 0.60                            # gee/gee_grassland_map.js (interactive)
+    hotspots: 0.60                       # gee/gee_s2_hotspots.js (interactive)
   # Purity sensitivity: a parcel enters the test if any cell inside it reaches
   # this. 0.0 = every parcel, so the sweep covers the population the anomaly is
   # reported for (HANDOVER §8). 0.90 restricts it to large compact fields and
   # isolates contamination from composition; run it only if the 0.0 sweep drifts.
   strict_purity: 0.0
+
+  # --- drought.engine: the three exports, run from Python -------------------
+  trajectory:
+    # FULL season, not the anomaly window: the trajectory shows WHEN 2026
+    # diverged, which needs the curve either side of it, and the alpine site
+    # needs the spring shoulder for snowmelt timing.
+    doy: [60, 305]                       # 1 March - 1 November
+    sites: [rheintal, linthebene, alpstein]
+    scale_m: 10                          # native mask resolution: never pyramid purity
+    min_pixels: 2000                     # drop dates where cloud left too little of a site
+  sensitivity:
+    index: NDMI
+    n_classes: 20                        # 0.05-wide purity bins
+    max_scene_cloud: 80
+    scale_m: 10
+    # The window the anomaly is quoted over. Alpstein is a summering area: its
+    # season is the grazing period, not May-August (HANDOVER §8).
+    windows:
+      linthebene: [121, 243]             # 1 May - 31 Aug
+      rheintal: [121, 243]
+      alpstein: [196, 258]               # 15 Jul - 15 Sep
+  cuts:
+    sites: [linthebene, rheintal]        # Linthebene first: best revisit density
+    doy: [60, 305]                       # need the build-up before the first cut
+    # Newest first: tasks run in submission order, so a run cut short still
+    # holds 2026 and the most recent baseline years.
+    years_newest_first: true
+    sample_n: 250                        # parcels per site
+    min_area_ha: 0.5                     # before the edge buffer
+    edge_buffer_m: -15                   # mixed edge pixels destroy the step signal
+    scale_m: 10
+    seed: 42
+    max_scene_cloud: 80
+    mgrs_tile: null                      # e.g. "32TNT"; null keeps both tiles
 
 # --- provenance --------------------------------------------------------------
 provenance:

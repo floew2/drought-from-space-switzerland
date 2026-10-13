@@ -62,9 +62,10 @@ notebook, so any figure can be traced back to what produced it.
 config.yaml            all settings
 notebooks/analysis.ipynb
 src/drought/           the code
-gee/                   Earth Engine scripts (paste into the Code Editor)
+src/drought/engine/    the Earth Engine exports, run from Python
+gee/                   two interactive Earth Engine scripts (maps, screenshots)
 data/nutzungen/        yearly Nutzungsflaechen shapefiles  <- you provide
-data/gee/<site>/       GEE exports                          <- you download
+data/gee/<site>/       Earth Engine exports                 <- `drought ee` downloads
 data/labels/           hand-labelled reference data
 data/masks/            grassland mask GeoTIFF
 output/figures/<site>/
@@ -73,34 +74,62 @@ output/tables/         provenance JSON beside every result
 
 ---
 
-## 1. GEE scripts — which is which
+## 1. Earth Engine — run from here, not from the browser
 
-Don't paste the files in `gee/` directly. Their shared settings (purity and
-Cloud Score+ thresholds, mask band order, land-use codes, years) are generated
-from `config.yaml`, and the Earth Engine project is a placeholder. Render a
-paste-ready copy first:
+The three data exports run from Python (`drought.engine`, earthengine-api).
+Every setting comes from `config.yaml`; nothing is pasted or edited by hand.
 
-```bash
-drought --set gee.project=<your-ee-project> gee render --out output/gee
-```
-
-Paste from `output/gee/` into the [Earth Engine Code Editor](https://code.earthengine.google.com/).
-Each copy carries a `CONFIG_HASH` (settings + local mask), and the data
-exports write it into their file names. After downloading an export,
-register it before using it:
+**Once:**
 
 ```bash
-drought provenance register data/gee/grassland_trajectory_multi_p90_cfg<hash>.csv --kind trajectory
-drought provenance register data/gee/linthebene/cuts_linthebene_2026_cfg<hash>.csv --kind cuts
+uv sync --extra dev --extra ee
+earthengine authenticate
 ```
 
-Registration refuses an export that cannot be current: a hash from other
-settings or another mask, the wrong management categories, missing years, or
-a `.geo` column. Every analysis step then refuses an unregistered or stale
-file and names the reason (`provenance.require` in `config.yaml`). To change a
-shared setting, edit `config.yaml` and run `drought gee render`; CI fails if
-the committed scripts do not match.
+Create a Cloud Storage bucket in your Earth Engine project (billing must be
+enabled on the project; the free tier covers this volume). Then put the project
+and bucket in `config.local.yaml`, which git ignores and which may set nothing
+else:
 
+```yaml
+gee:
+  project: <your-ee-project>
+  bucket: <your-bucket>
+```
+
+**Every run:**
+
+```bash
+drought mask build              # the mask and its provenance record
+drought ee upload-mask          # -> bucket -> asset, stamped with the mask's hash
+drought ee check                # project, bucket, and asset == local mask
+drought ee trajectory --smoke   # one site, two years: read the EECU cost first
+drought ee trajectory           # -> data/gee/grassland_trajectory_multi_p90_cfg<hash>.csv
+drought ee sensitivity          # -> data/gee/purity_sensitivity_<site>_<system>_cfg<hash>.csv
+drought ee cuts --smoke         # current year, 100 parcels: read the EECU cost first
+drought ee cuts                 # -> data/gee/<site>/cuts_<site>_<year>_cfg<hash>.csv
+```
+
+Each command starts the tasks, waits (printing state changes and EECU cost),
+downloads the CSVs and registers them. A command interrupted while waiting can
+simply be run again: finished exports are downloaded, not repeated.
+
+**Why nothing stale gets through:**
+
+- **The asset must be the local mask.** `upload-mask` stores the mask's content
+  hash on the asset (`drought_mask_sha256`). Every export compares it with the
+  local mask first and refuses to start on a mismatch, including against an
+  asset uploaded by hand.
+- **Exports are named with a hash** of every Earth Engine setting plus the mask
+  (`_cfg<hash>`). Registration refuses a name from other settings and names the
+  setting that changed.
+- **Registration checks the content**: the management categories, the years,
+  and no geometry column in a cut export. Every analysis step then refuses an
+  unregistered or stale file (`provenance.require`).
+
+The smoke runs land in `output/ee_smoke/` and are not registered.
+
+### For screenshots only — nothing to download
 ### For screenshots only — nothing to download
 
 | script | what | how to use |
@@ -109,18 +138,14 @@ the committed scripts do not match.
 | `gee_s2_hotspots.js` | Sentinel-2 zoom-ins at 10 m: Untersee, Horn, Rheintal, Linthebene. RGB pairs plus lake water extent by two methods | Set `ACTIVE_SITE`, run, screenshot. Run **once per site**. |
 | `gee_grassland_map.js` | Per-parcel grassland condition anomaly (NDMI z-score), choropleth | Set `ACTIVE_SITE`, run, screenshot. Needs the mask asset from step 2. |
 
+These run in the [Code Editor](https://code.earthengine.google.com/). Their
+shared settings are generated from `config.yaml`, and the committed copies have
+a placeholder project, so paste from a rendered copy:
+`drought --set gee.project=<project> gee render --out output/gee`.
+
 Stretches are **pinned** — identical `min`/`max` on baseline and current year,
 no per-scene levelling. That is what makes the two panels comparable, so don't
 "improve" the contrast on one of them.
-
-### For data extraction — download the CSVs
-
-| script | what | output |
-|---|---|---|
-| `gee_grassland_trajectory.js` | Site-mean NDVI/kNDVI/NDMI/NDRE per acquisition date, per site and regime | one CSV, all sites |
-| `gee_cuts_extract.js` | **Per-parcel** time series for cut detection | one CSV per year, per site |
-
-Both write to Google Drive. Start the tasks, wait, download.
 
 ---
 
@@ -186,8 +211,8 @@ impact figure uses Sentinel-2 rather than MODIS.
 
 ### C. Grassland condition — trajectory
 
-1. Run `gee_grassland_trajectory.js`, download the CSV into `data/gee/`.
-2. Notebook chapter 4:
+1. `drought ee trajectory` (§1).
+2. `drought trajectory plot --site linthebene`, or notebook chapter 4:
    ```python
    dr.trajectory.plot(site="linthebene", index="NDMI")
    ```
@@ -202,11 +227,10 @@ Needs the mask asset. Run `gee_grassland_map.js`, screenshot.
 
 ### E. Cut detection
 
-1. Run `gee_cuts_extract.js` per site. **Smoke-test first** — set
-   `SMOKE_TEST = true`, watch the EECU counter, then scale up. Cost predictions
-   here have been wrong more than once.
-2. Download into `data/gee/<site>/` as `cuts_2019.csv` … `cuts_2026.csv`.
-3. Notebook chapter 5:
+1. `drought ee cuts --smoke`, read the EECU cost, then `drought ee cuts`.
+   Cost predictions here have been wrong more than once. The tasks run newest
+   year first, so a run cut short still holds 2026.
+2. Notebook chapter 5:
    ```python
    df = dr.load_site("linthebene")
    ev = dr.detect.detect_all(df)

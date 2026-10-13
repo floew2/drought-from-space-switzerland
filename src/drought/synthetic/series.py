@@ -4,10 +4,10 @@ Two products, shaped exactly like the Earth Engine exports they stand in for:
 
 trajectory   one row per site / regime / year / acquisition date, columns
              site, regime, year, date, doy, NDVI, kNDVI, NDMI, NDRE, n_px —
-             as written by `gee/gee_grassland_trajectory.js`
+             as written by `drought ee trajectory`
 cuts         one wide CSV per site and year, one row per parcel, one column per
              date and band (`<sensing>_<processing>_<tile>_<index>_<stat>`) — as
-             written by `gee/gee_cuts_extract.js`, minus the geometry column
+             written by `drought ee cuts`
 
 What is modelled, because the pipeline has to cope with it:
 

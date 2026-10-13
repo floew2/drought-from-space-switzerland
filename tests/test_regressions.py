@@ -182,7 +182,7 @@ def test_config_round_trip():
     provenance would describe a configuration that never ran.
     """
     raw = yaml.safe_load((config.ROOT / "config.yaml").read_text())
-    assert config.load().to_dict() == raw
+    assert config.load(local=False).to_dict() == raw
     assert yaml.safe_load(yaml.safe_dump(config.CFG.to_dict())) == config.CFG.to_dict()
     assert config.CFG.get("detect.min_drop_abs") == raw["detect"]["min_drop_abs"]
     assert config.CFG.get("no.such.key", "absent") == "absent"

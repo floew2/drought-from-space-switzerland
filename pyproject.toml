@@ -31,6 +31,7 @@ drought = "drought.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+ee = ["earthengine-api>=1.0"]   # drought ee …: the Earth Engine exports, run from Python
 notebook = ["jupyterlab>=4"]
 
 [tool.setuptools.packages.find]

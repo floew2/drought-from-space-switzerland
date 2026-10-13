@@ -44,13 +44,17 @@ _YEARS = ("project.current_year", "project.baseline_years")
 SETTING_KEYS = {
     "mask": _MASK,
     "trajectory": (*_MASK, *_YEARS, "mask.purity_min", "analysis.regimes",
-                   "gee.clear_threshold"),
-    "cuts": (*_MASK, *_YEARS, "mask.purity_min", "gee.clear_threshold"),
+                   "gee.clear_threshold", "gee.trajectory"),
+    "cuts": (*_MASK, *_YEARS, "mask.purity_min", "gee.clear_threshold", "gee.cuts",
+             "gee.parcels_year"),
+    "sensitivity": (*_MASK, *_YEARS, "mask.purity_min", "analysis.regimes",
+                    "gee.clear_threshold", "gee.strict_purity", "gee.sensitivity",
+                    "gee.parcels_year"),
     "station": _YEARS,
     "results": (*_MASK, *_YEARS, "mask.purity_min", "analysis.regimes",
                 "analysis.merge_regimes", "gee.clear_threshold"),
 }
-MASK_DEPENDENT = {"trajectory", "cuts", "results"}
+MASK_DEPENDENT = {"trajectory", "cuts", "sensitivity", "results"}
 
 
 class ProvenanceError(RuntimeError):
@@ -207,6 +211,9 @@ def summarise(kind: str, path: str | Path) -> dict:
                 "first_date": dates[0] if dates else None,
                 "last_date": dates[-1] if dates else None,
                 "has_geometry": ".geo" in df.columns}
+    if kind == "sensitivity":
+        return {"rows": len(df), "years": sorted(int(y) for y in df["year"].unique()),
+                "classes": int(df["pclass"].nunique())}
     return {"rows": len(df)}
 
 
@@ -247,7 +254,7 @@ def register(path: str | Path, kind: str) -> Path:
 
     Args:
         path: The downloaded CSV.
-        kind: "trajectory" or "cuts".
+        kind: "trajectory", "cuts" or "sensitivity".
 
     Returns:
         The sidecar path.
@@ -269,7 +276,7 @@ def register(path: str | Path, kind: str) -> Path:
                 "config hash", m.group(1), now)
             raise ProvenanceError(path, field, was, cur,
                                   "Re-render the scripts (`drought gee render`) and "
-                                  "re-run the export.")
+                                  "re-run the export (`drought ee ...`).")
     rec = record(kind, path, content)
     rec["registered_from"] = "earth engine export"
     return write_sidecar(path, rec)
@@ -315,7 +322,8 @@ def _verify(path: Path, kind: str) -> dict:
     if not side.exists():
         raise ProvenanceError(path, "provenance record", None, "required",
                               f"No {side.name}. Register an Earth Engine export with "
-                              f"`drought provenance register {path.name} --kind {kind}`.")
+                              f"`drought provenance register {path.name} --kind {kind}` "
+                              "(`drought ee …` does this itself).")
     rec = json.loads(side.read_text())
     if rec.get("kind") != kind:
         raise ProvenanceError(path, "kind", rec.get("kind"), kind)

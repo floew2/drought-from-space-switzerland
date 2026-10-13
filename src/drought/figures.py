@@ -549,15 +549,16 @@ def figure_purity_sensitivity(site, regime="intensive", path=None, cfg=None,
                               min_px=200):
     """Does the anomaly depend on where the purity threshold is set?
 
-    Reads the grouped export from gee_purity_sensitivity.js: mean index and
+    Reads the grouped export from `drought ee sensitivity`: mean index and
     pixel count per purity class per year. The mean at threshold t is the
     pixel-weighted combination of all classes at or above t — arithmetically
     identical to re-extracting at threshold t, but from one pass instead of one
     per threshold.
 
-    The parcel set is FIXED by the GEE script (only parcels with at least one
-    cell above the strict purity), so composition does not change with the
-    threshold. Any drift in the curve is contamination, not a different sample.
+    The parcels that enter are those with at least one cell at gee.strict_purity.
+    At the default 0.0 that is every parcel: the sweep covers the population the
+    anomaly is reported for, and a drift may be contamination or composition. At
+    0.90 the set is fixed large fields, and any drift is contamination alone.
 
     What to read: if the anomaly is flat from the strict end down to the chosen
     threshold, the choice is not a lever on the result — which is a stronger
@@ -574,8 +575,10 @@ def figure_purity_sensitivity(site, regime="intensive", path=None, cfg=None,
         if not cands:
             raise FileNotFoundError(
                 f"no purity_sensitivity_{site}_{regime}*.csv in "
-                f"{ROOT / C.paths.gee} — run gee_purity_sensitivity.js first")
+                f"{ROOT / C.paths.gee} — run `drought ee sensitivity` first")
         path = cands[0]
+    from .provenance import verify
+    verify(path, "sensitivity")            # refuses a stale export, naming why
     d = pd.read_csv(path)
     for c in ("year", "pclass", "purity_lo", "mean", "n_px"):
         d[c] = pd.to_numeric(d[c], errors="coerce")

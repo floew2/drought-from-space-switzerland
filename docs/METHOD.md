@@ -579,10 +579,13 @@ Bug 6 was not fixed by being careful. It was fixed by structure
   recorded 0.8, current 0.9`), another mask build, a file changed after it
   was recorded, a missing record, management categories the pipeline does
   not use, missing years, a 20 m or uint8 mask, and a `.geo` column.
-- **The Earth Engine scripts take their shared settings from `config.yaml`**
-  through `drought gee render`. Each rendered copy writes a hash of its
-  settings and mask into its export file names, so registration can tell
-  which configuration produced a download.
+- **The Earth Engine exports run from Python** (`drought ee …`), reading
+  `config.yaml` directly; there is no hand-edited copy of a setting to drift.
+  The mask asset carries the local mask's content hash, and an export refuses
+  to start against any other asset. Exports are named with a hash of every
+  Earth Engine setting plus the mask, and each download is registered as it
+  arrives. The two remaining Code Editor scripts, a map and a hotspot view,
+  get their shared settings from `drought gee render`, checked by CI.
 - **`output/results.json` never mixes vintages.** Each section is stamped with
   the settings and mask it was computed under. A stale section is dropped on
   the next write, and `results.json` refuses to load while one remains.

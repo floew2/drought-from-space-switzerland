@@ -14,6 +14,9 @@ dist/
 /data/*
 !/data/README.md
 
+# This machine's Earth Engine project and bucket (config.load reads it).
+/config.local.yaml
+
 # Generated outputs. Figures meant for GitHub are copied to docs/figures/ on
 # purpose, not by accident.
 /output/*

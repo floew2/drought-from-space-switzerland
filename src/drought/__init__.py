@@ -13,7 +13,7 @@ Or the convenience surface:
 
 import importlib as _importlib
 
-_SUBMODULES = ("changepoint", "clean", "cli", "config", "demo", "detect", "evaluate",
+_SUBMODULES = ("changepoint", "clean", "cli", "config", "demo", "detect", "engine", "evaluate",
                "figures", "gallery", "gee", "io", "labelling", "labels", "mask",
                "mask_figures", "metrics", "precip", "provenance", "results", "synthetic",
                "trajectory")

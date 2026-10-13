@@ -9,6 +9,7 @@
     drought cuts detect --site S
     drought cuts score --site S
     drought gallery
+    drought ee check|upload-mask|trajectory|sensitivity|cuts|run-all
     drought gee render [--out DIR] [--check]
     drought provenance register|verify|show FILES [--kind KIND]
     drought results show
@@ -208,6 +209,37 @@ def _gee_render(a) -> None:
               "in their file names")
 
 
+def _ee(a) -> None:
+    from .config import CFG
+    from .engine import cuts, imagery, sensitivity, session, tasks, trajectory, upload
+
+    if a.action == "check":
+        print(f"  project {session.project()}, bucket gs://{session.bucket()}/"
+              f"{CFG.gee.bucket_prefix}")
+        session.init()
+        session.list_objects(session.object_name(""))
+        print("  Earth Engine and the bucket are reachable")
+        sha = imagery.check_mask_asset()
+        print(f"  mask asset matches the local mask ({sha}); CONFIG_HASH "
+              f"{tasks.config_hash()}")
+        return
+    if a.action == "upload-mask":
+        upload.upload_mask()
+        return
+    imagery.check_mask_asset()                       # before building anything
+    if a.action == "trajectory":
+        exps = trajectory.exports(smoke=a.smoke)
+    elif a.action == "sensitivity":
+        exps = sensitivity.exports(sites=a.site, regimes=a.regime)
+    elif a.action == "cuts":
+        exps = cuts.exports(sites=a.site, only_years=a.year, smoke=a.smoke)
+    else:                                            # run-all
+        exps = (trajectory.exports() + sensitivity.exports() + cuts.exports())
+    paths = tasks.run(exps, dry_run=a.dry_run)
+    if paths:
+        print(f"  {len(paths)} file(s) downloaded and registered")
+
+
 def _provenance(a) -> None:
     import json
 
@@ -341,6 +373,29 @@ def build_parser() -> argparse.ArgumentParser:
                    help="fail if gee/ differs from a fresh render (CI)")
     c.set_defaults(func=_gee_render)
 
+    e = sub.add_parser("ee", help="run the Earth Engine exports from Python").add_subparsers(
+        dest="action", required=True, metavar="ACTION")
+    e.add_parser("check", help="project, bucket and mask asset in order?").set_defaults(func=_ee)
+    e.add_parser("upload-mask", help="local mask -> bucket -> asset, stamped with its hash"
+                 ).set_defaults(func=_ee)
+    for name, text in (("trajectory", "site-mean index series -> data/gee/"),
+                       ("sensitivity", "purity-class series per site and system -> data/gee/"),
+                       ("cuts", "per-parcel series per year -> data/gee/<site>/"),
+                       ("run-all", "trajectory, sensitivity and cuts, one after another")):
+        c = e.add_parser(name, help=text)
+        if name in ("sensitivity", "cuts"):
+            c.add_argument("--site", action="append", help="repeatable; default: all")
+        if name == "sensitivity":
+            c.add_argument("--regime", action="append", help="repeatable; default: all")
+        if name == "cuts":
+            c.add_argument("--year", action="append", type=int, help="repeatable")
+        if name in ("trajectory", "cuts"):
+            c.add_argument("--smoke", action="store_true",
+                           help="a small run to measure cost; not registered")
+        c.add_argument("--dry-run", action="store_true",
+                       help="check the mask asset and list the exports, start nothing")
+        c.set_defaults(func=_ee)
+
     pv = sub.add_parser("provenance", help="provenance records of data files").add_subparsers(
         dest="action", required=True, metavar="ACTION")
     for name, text in (("register", "record an Earth Engine export on arrival, after checking it"),
@@ -349,7 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
         c = pv.add_parser(name, help=text)
         c.add_argument("files", nargs="+")
         if name != "show":
-            c.add_argument("--kind", required=True, choices=["trajectory", "cuts", "station", "mask"])
+            c.add_argument("--kind", required=True, choices=["trajectory", "cuts", "sensitivity", "station", "mask"])
         c.set_defaults(func=_provenance)
 
     r = sub.add_parser("results", help="output/results.json").add_subparsers(

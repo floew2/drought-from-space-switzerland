@@ -83,7 +83,8 @@ Everything runs through one command, `drought` (see `drought --help`):
 | `drought --synthetic mask check` | Area cost of each purity threshold, and the PSF-model comparison. |
 | `drought --synthetic cuts score --site linthebene` | The frozen detector and the changepoint alternative, scored against the labels. |
 | `drought results show` | Every headline number from `results.json`, refused if any of it was computed under other settings or another mask. |
-| `drought gee render` | Writes `config.yaml`'s shared settings into the Earth Engine scripts; CI fails if they drift. |
+| `drought ee trajectory` / `sensitivity` / `cuts` | Runs the Earth Engine exports from Python: checks the mask asset is the local mask, waits, downloads, registers. |
+| `drought gee render` | Writes `config.yaml`'s shared settings into the two interactive Code Editor scripts; CI fails if they drift. |
 | `drought config show mask` | The effective configuration, after all overrides. |
 | `make test` | One regression test per bug that actually happened, each also showing that the old logic fails it ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)); plus the PSF derivation, CLI precedence and synthetic calibration. |
 
@@ -110,7 +111,8 @@ To run on the real data, see [docs/WORKFLOW.md](docs/WORKFLOW.md).
 config.yaml              every setting, one place
 src/drought/             the analysis (mask, trajectory, precip, detect, evaluate, ...)
 src/drought/synthetic/   calibrated stand-ins for every input; targets.py lists the real numbers
-gee/                     Earth Engine extraction scripts
+src/drought/engine/      the Earth Engine exports, run from Python (`drought ee …`)
+gee/                     two interactive Code Editor scripts (map, hotspots)
 notebooks/analysis.ipynb the working notebook (outputs stripped)
 docs/METHOD.md           how and why — start here
 docs/gallery.md          rendered figures: real results, model, synthetic demo

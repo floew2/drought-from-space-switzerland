@@ -2,7 +2,7 @@
 Grassland VI trajectory and season integral — plots matching the precipitation
 figure.
 
-Input:  grassland_trajectory_NDVI.csv from gee_grassland_trajectory.js
+Input:  grassland_trajectory_multi_p90_cfg<hash>.csv from `drought ee trajectory`
         columns: site, regime, year, date, doy, ix_mean, n_px
 Output: one two-panel figure per site/regime, plus a printed summary table.
 

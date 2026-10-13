@@ -139,7 +139,8 @@ def test_committed_scripts_carry_no_project_id():
         assert gee.PLACEHOLDER in text or "ASSETS" not in gee.SCRIPTS[script]
 
 
-def test_paste_ready_render_needs_a_project(tmp_path):
+def test_paste_ready_render_needs_a_project(tmp_path, monkeypatch):
+    monkeypatch.setattr(config.CFG.gee, "project", None)   # config.local.yaml may set it
     with pytest.raises(ValueError, match="gee.project"):
         gee.render(out=tmp_path)
 
