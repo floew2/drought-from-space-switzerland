@@ -654,12 +654,16 @@ def figure_purity_sensitivity(site, regime="intensive", path=None, cfg=None,
     _style(axes)
     fig.suptitle(f"Purity threshold sensitivity  ·  {site}  ·  {regime}",
                  fontsize=11.5, fontweight="bold", color="#ff3b30")
-    fig.supxlabel("Fixed parcel set: only parcels with a clean interior enter, "
-                  "so the threshold changes which CELLS are used, never which "
-                  "FIELDS.\nA flat curve means the choice is not a lever on the "
-                  "result.", fontsize=7, color="#6e7681")
+    strict_p = C.gee.strict_purity
+    who = ("Every parcel enters (gee.strict_purity 0): at high thresholds small fields "
+           "drop out, so a drift can be contamination or composition."
+           if not strict_p else
+           f"Fixed parcel set (a cell >= {strict_p:g} required): the threshold changes "
+           "which CELLS are used, never which FIELDS.")
+    fig.supxlabel(f"{who}\nA flat curve means the choice is not a lever on the result.",
+                  fontsize=7, color="#6e7681")
     _save(fig, site, f"purity_sensitivity_{regime}")
-    plt.show()
+    plt.close(fig)
 
     print(f"{'threshold':>10}{'anomaly':>11}{'vs strictest':>14}{'cells':>10}")
     for _, r in t.iterrows():

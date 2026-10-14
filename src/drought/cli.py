@@ -10,6 +10,7 @@
     drought cuts score --site S
     drought gallery
     drought ee check|stamp-mask|trajectory|sensitivity|cuts|run-all
+    drought sensitivity plot [--site S] [--regime R]
     drought gee render [--out DIR] [--check]
     drought provenance register|verify|show FILES [--kind KIND]
     drought results show
@@ -209,6 +210,40 @@ def _gee_render(a) -> None:
               "in their file names")
 
 
+def _sensitivity_plot(a) -> None:
+    from . import figures, results
+    from .config import CFG
+
+    sites = a.site or list(CFG.gee.sensitivity.windows.to_dict())
+    regimes = a.regime or list(CFG.analysis.regimes)
+    out, used = {}, CFG.mask.purity_min
+    for site in sites:
+        for regime in regimes:
+            print(f"\n{site} / {regime}")
+            try:
+                t = figures.figure_purity_sensitivity(site, regime)
+            except FileNotFoundError as exc:
+                print(f"  [skipped] {exc}")
+                continue
+            if t is None:
+                continue
+            strict = t.iloc[-1]
+            ref = t.iloc[(t.threshold - used).abs().argmin()]
+            hi = t[t.threshold >= 0.5]
+            spread = float((hi.anomaly.max() - hi.anomaly.min()) / abs(strict.anomaly))
+            out[f"{site}/{regime}"] = {
+                "anomaly_at_threshold": round(float(ref.anomaly), 4),
+                "threshold": float(ref.threshold),
+                "anomaly_strictest": round(float(strict.anomaly), 4),
+                "strictest": float(strict.threshold),
+                "spread_0p5_up_pct_of_anomaly": round(100 * spread, 1)}
+    if out:
+        results.update("sensitivity", out)
+        print("\n  spread of the anomaly over thresholds 0.5-0.95, as % of the anomaly:")
+        for k, v in out.items():
+            print(f"    {k:<24}{v['spread_0p5_up_pct_of_anomaly']:>6.1f} %")
+
+
 def _ee(a) -> None:
     from .config import CFG
     from .engine import cuts, imagery, sensitivity, session, stamp, tasks, trajectory
@@ -350,6 +385,13 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--index", help="NDMI, NDVI, kNDVI or NDRE (default: config detect.index)")
     c.add_argument("--path", help="trajectory CSV (default: found under paths.gee)")
     c.set_defaults(func=_trajectory_plot)
+
+    se = sub.add_parser("sensitivity", help="purity-threshold sensitivity").add_subparsers(
+        dest="action", required=True, metavar="ACTION")
+    c = se.add_parser("plot", help="anomaly at every purity threshold, per site and system")
+    c.add_argument("--site", action="append", help="repeatable; default: all")
+    c.add_argument("--regime", action="append", help="repeatable; default: all")
+    c.set_defaults(func=_sensitivity_plot)
 
     c = sub.add_parser("precip", help="cumulative precipitation and P - ET0")
     c.add_argument("--download", action="store_true",

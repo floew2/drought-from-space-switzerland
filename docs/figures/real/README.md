@@ -20,13 +20,13 @@ Expected files:
 
 | file | from | run date |
 |---|---|---|
-| `vi_trajectory_NDMI_intensive_linthebene.png` | `trajectory.plot(site="linthebene")` | *to be filled in* |
-| `vi_trajectory_NDMI_extensive_linthebene.png` | same | |
-| `vi_trajectory_NDMI_intensive_rheintal.png` | `trajectory.plot(site="rheintal")` | |
-| `vi_trajectory_NDMI_extensive_rheintal.png` | same | |
-| `precip_stg_2026.png` | `precip.main()` | |
-| `parcel_size.png` | `mask.figure_parcel_size(master=...)` | |
-| `area_check_all.png` | `mask.area_check(master=...)` | |
+| `vi_trajectory_NDMI_intensive_linthebene.png` | `drought trajectory plot --site linthebene` | 14 Oct 2026 |
+| `vi_trajectory_NDMI_extensive_linthebene.png` | same | 14 Oct 2026 |
+| `vi_trajectory_NDMI_intensive_rheintal.png` | `drought trajectory plot --site rheintal` | 14 Oct 2026 |
+| `vi_trajectory_NDMI_extensive_rheintal.png` | same | 14 Oct 2026 |
+| `precip_stg_2026.png` | `drought precip --download` | 14 Oct 2026 (data to 12 Oct) |
+| `parcel_size.png` | `drought mask figures` | 14 Oct 2026 |
+| `area_check_all.png` | same | 14 Oct 2026 |
 
 `tests/test_docs.py` fails while any image the docs reference is missing, so
 the repository cannot be submitted with an empty slot.
