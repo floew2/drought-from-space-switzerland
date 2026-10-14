@@ -119,6 +119,32 @@ def miss_positions(labels: dict, df: pd.DataFrame, cfg=None, tol=None,
     return pd.DataFrame(rows)
 
 
+def false_positive_positions(labels: dict, df: pd.DataFrame, cfg=None, tol=None
+                             ) -> pd.DataFrame:
+    """WHERE the false positives fall: one row per detection with no label in reach.
+
+    A drought decline or its recovery can look like a cut. If the drought year's
+    false positives sit in high summer and in the recovery, that is the
+    mechanism; if they are spread like everyone else's, it is not.
+    """
+    C = cfg or CFG
+    tol = tol or C.evaluate.match_tolerance_days
+    rows = []
+    for key, truth in labels.items():
+        pid, yr = key.split("|")
+        g = df[(df.parcel_id == pid) & (df.year == int(yr))]
+        if g.empty:
+            continue
+        um = list(truth)
+        for p in sorted(detect_parcel_year(g, C)["cut_dates"] or []):
+            hit = [t for t in um if abs(t - p) <= tol]
+            if hit:
+                um.remove(min(hit, key=lambda t: abs(t - p)))
+            else:
+                rows.append({"year": int(yr), "doy": int(p), "key": key})
+    return pd.DataFrame(rows, columns=["year", "doy", "key"])
+
+
 def assert_wired(cfg=None) -> bool:
     """Check every detection parameter is actually READ by the detector.
 

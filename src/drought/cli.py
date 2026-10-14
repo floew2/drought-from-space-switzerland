@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+import pandas as pd
 import yaml
 
 
@@ -155,6 +156,36 @@ def _cuts_score(a) -> None:
         "changepoint_f1": cp["f1"]},
         inputs=sorted((config.gee_dir(a.site) / ("labelled" if a.labelled else ""))
                       .glob("cuts_*.csv")))
+
+
+def _cuts_errors(a) -> None:
+    import drought as dr
+
+    from . import evaluate, labels
+    df = dr.load_site(a.site, verbose=False, labelled=a.labelled)
+    lab = labels.check_labels(labels.load_labels(a.site), df)
+    by_year = evaluate.score_by_year(lab, df)
+    cur = int(dr.CFG.project.current_year)
+    rest = by_year.drop(index=cur, errors="ignore")[["tp", "fp", "fn"]].sum()
+    p = rest.tp / (rest.tp + rest.fp)
+    r = rest.tp / (rest.tp + rest.fn)
+    print(f"\nwithout {cur}: precision {p:.3f}  recall {r:.3f}  F1 {2 * p * r / (p + r):.3f}")
+    if cur in by_year.index:
+        y = by_year.loc[cur]
+        print(f"{cur} alone: {int(y.tp)} hits, {int(y.fp)} false positives, {int(y.fn)} misses")
+    fp = evaluate.false_positive_positions(lab, df)
+    bins = list(range(60, 320, 20))
+    if not fp.empty:
+        fp["window"] = pd.cut(fp.doy, bins=bins, right=False)
+        tab = fp.pivot_table(index="window", columns=fp.year == cur, values="doy",
+                             aggfunc="count", fill_value=0, observed=False)
+        tab.columns = [str(cur) if c else "other years" for c in tab.columns]
+        print("\nfalse positives by day of year:")
+        print(tab.to_string())
+    miss = evaluate.miss_positions(lab, df)
+    if not miss.empty:
+        print(f"\nmisses: {len(miss)}, of them last cuts of their season: "
+              f"{int(miss.is_last.sum())}")
 
 
 def _gallery(a) -> None:
@@ -403,7 +434,9 @@ def build_parser() -> argparse.ArgumentParser:
     cu = sub.add_parser("cuts", help="cut detection").add_subparsers(
         dest="action", required=True, metavar="ACTION")
     for name, func, text in (("detect", _cuts_detect, "detect cuts, per-year summary"),
-                             ("score", _cuts_score, "score against the hand labels")):
+                             ("score", _cuts_score, "score against the hand labels"),
+                             ("errors", _cuts_errors,
+                              "where the false positives and misses fall")):
         c = cu.add_parser(name, help=text)
         c.add_argument("--site", required=True)
         c.add_argument("--labelled", action="store_true",
