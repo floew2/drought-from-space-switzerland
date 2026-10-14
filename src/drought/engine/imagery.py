@@ -1,10 +1,11 @@
 """What the three exports share: the mask asset, sites, and Sentinel-2 indices.
 
-The mask asset is checked before anything runs. `upload.upload_mask` stores the
-local mask's content hash as the asset property `drought_mask_sha256`; if the
-asset in Earth Engine carries another hash, or none, the export refuses to
-start. Without this, a run could read an older mask while the local files, and
-the provenance records, described a newer one.
+The mask asset is checked before anything runs. `stamp.stamp_mask` compares the
+uploaded asset with the local mask pixel by pixel and, if they agree, stores the
+local mask's content hash as the asset property `drought_mask_sha256`. If the
+asset carries another hash, or none, an export refuses to start. Without this,
+a run could read an older mask while the local files, and the provenance
+records, described a newer one.
 """
 
 from __future__ import annotations
@@ -39,15 +40,21 @@ def check_mask_asset(properties: dict | None = None) -> str:
     if fp is None:
         raise ProvenanceError(name, "local mask", None, "a built mask",
                               "Build it first: drought mask build")
-    props = session.asset_properties(name) if properties is None else properties
+    if properties is None:
+        info = session.asset_info(name)
+        props = None if info is None else info.get("properties", {})
+    else:
+        props = properties
     if props is None:
         raise ProvenanceError(name, "asset", None, fp["sha256"],
-                              "No mask asset in Earth Engine: drought ee upload-mask")
+                              "No mask asset in Earth Engine. Upload the GeoTIFF in the "
+                              "Code Editor, then: drought ee stamp-mask")
     remote = props.get(MASK_SHA_PROPERTY)
     if remote != fp["sha256"]:
         raise ProvenanceError(name, MASK_SHA_PROPERTY, remote, fp["sha256"],
-                              "The Earth Engine asset is not the local mask. Upload "
-                              "the current one: drought ee upload-mask")
+                              "The Earth Engine asset is not stamped as the local mask. "
+                              "Upload the current GeoTIFF in the Code Editor, then: "
+                              "drought ee stamp-mask")
     return remote
 
 

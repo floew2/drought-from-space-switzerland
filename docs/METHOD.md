@@ -581,8 +581,9 @@ Bug 6 was not fixed by being careful. It was fixed by structure
   not use, missing years, a 20 m or uint8 mask, and a `.geo` column.
 - **The Earth Engine exports run from Python** (`drought ee …`), reading
   `config.yaml` directly; there is no hand-edited copy of a setting to drift.
-  The mask asset carries the local mask's content hash, and an export refuses
-  to start against any other asset. Exports are named with a hash of every
+  The mask asset is compared with the local mask cell by cell before it is
+  stamped with the mask's content hash, and an export refuses to start against
+  an asset with any other stamp. Exports are named with a hash of every
   Earth Engine setting plus the mask, and each download is registered as it
   arrives. The two remaining Code Editor scripts, a map and a hotspot view,
   get their shared settings from `drought gee render`, checked by CI.

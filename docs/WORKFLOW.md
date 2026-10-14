@@ -83,26 +83,36 @@ Every setting comes from `config.yaml`; nothing is pasted or edited by hand.
 
 ```bash
 uv sync --extra dev --extra ee
-earthengine authenticate
+earthengine authenticate        # allow Drive access when asked
 ```
 
-Create a Cloud Storage bucket in your Earth Engine project (billing must be
-enabled on the project; the free tier covers this volume). Then put the project
-and bucket in `config.local.yaml`, which git ignores and which may set nothing
-else:
+Put the project in `config.local.yaml`, which git ignores and which may set
+nothing but the project and the Drive folder:
 
 ```yaml
 gee:
   project: <your-ee-project>
-  bucket: <your-bucket>
 ```
+
+No Cloud Storage bucket and no billing: exports are batch tasks to Google
+Drive (folder `gee.drive_folder`), downloaded from there with the Earth Engine
+login. If Drive refuses the download, enable the Google Drive API in the
+project (Cloud Console → APIs & Services; free).
 
 **Every run:**
 
 ```bash
 drought mask build              # the mask and its provenance record
-drought ee upload-mask          # -> bucket -> asset, stamped with the mask's hash
-drought ee check                # project, bucket, and asset == local mask
+```
+
+Upload `data/masks/grassland_mask_sg.tif` in the
+[Code Editor](https://code.earthengine.google.com/): Assets → NEW → GeoTIFF,
+asset name `grassland_mask_sg`, pyramiding policy **SAMPLE** (the default,
+MEAN, averages purities at coarser scales). Replace the old asset. Then:
+
+```bash
+drought ee stamp-mask           # asset == local mask? then stamp it with the mask's hash
+drought ee check                # project, Drive, and the stamp
 drought ee trajectory --smoke   # one site, two years: read the EECU cost first
 drought ee trajectory           # -> data/gee/grassland_trajectory_multi_p90_cfg<hash>.csv
 drought ee sensitivity          # -> data/gee/purity_sensitivity_<site>_<system>_cfg<hash>.csv
@@ -111,15 +121,17 @@ drought ee cuts                 # -> data/gee/<site>/cuts_<site>_<year>_cfg<hash
 ```
 
 Each command starts the tasks, waits (printing state changes and EECU cost),
-downloads the CSVs and registers them. A command interrupted while waiting can
-simply be run again: finished exports are downloaded, not repeated.
+downloads the CSVs from Drive and registers them. A command interrupted while
+waiting can simply be run again: finished exports are downloaded, not repeated.
 
 **Why nothing stale gets through:**
 
-- **The asset must be the local mask.** `upload-mask` stores the mask's content
-  hash on the asset (`drought_mask_sha256`). Every export compares it with the
-  local mask first and refuses to start on a mismatch, including against an
-  asset uploaded by hand.
+- **The asset must be the local mask.** `stamp-mask` reads 400 cells of the
+  uploaded asset (fixed seed, mostly grassland) and compares all four purity
+  values with the local GeoTIFF. Only if every one agrees to 1e-6 does it store
+  the mask's content hash on the asset (`drought_mask_sha256`). A wrong file,
+  a stale upload, a shifted grid or swapped bands all fail. Every export then
+  refuses to start unless the stamp equals the local mask.
 - **Exports are named with a hash** of every Earth Engine setting plus the mask
   (`_cfg<hash>`). Registration refuses a name from other settings and names the
   setting that changed.

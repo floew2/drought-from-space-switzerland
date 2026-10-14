@@ -1,23 +1,21 @@
-"""Connection to Earth Engine and the Cloud Storage bucket.
+"""Connection to Earth Engine, and downloads from Google Drive.
 
-Both use the credentials `earthengine authenticate` stores. Their scopes cover
-Cloud Storage (devstorage.full_control), so the bucket needs no second login.
-Storage is reached through its JSON API with an authorised session, which keeps
-the dependency to earthengine-api alone.
+Exports go to Drive (batch tasks, no interactive limits, no billing), and are
+fetched through the Drive API with the credentials `earthengine authenticate`
+stores. Their default scopes include Drive, so there is no second login.
 """
 
 from __future__ import annotations
 
 import functools
 from pathlib import Path
-from urllib.parse import quote
 
 from ..config import CFG
 
-__all__ = ["asset_id", "asset_properties", "bucket", "download", "ee", "exists",
-           "init", "list_objects", "object_name", "project", "upload"]
+__all__ = ["asset_id", "asset_info", "drive_download", "drive_find", "ee", "init",
+           "project"]
 
-_GCS = "https://storage.googleapis.com"
+_DRIVE = "https://www.googleapis.com/drive/v3/files"
 
 
 def project() -> str:
@@ -25,23 +23,8 @@ def project() -> str:
     p = CFG.gee.project
     if not p:
         raise SystemExit("gee.project is not set. Put it in config.local.yaml:\n"
-                         "  gee: {project: <your-ee-project>, bucket: <bucket>}")
+                         "  gee: {project: <your-ee-project>}")
     return str(p)
-
-
-def bucket() -> str:
-    """The configured Cloud Storage bucket."""
-    b = CFG.gee.bucket
-    if not b:
-        raise SystemExit("gee.bucket is not set. Put it in config.local.yaml next to "
-                         "gee.project. The bucket must be in a project with billing "
-                         "enabled; the free tier covers this volume.")
-    return str(b)
-
-
-def object_name(*parts: str) -> str:
-    """An object path under gee.bucket_prefix."""
-    return "/".join([str(CFG.gee.bucket_prefix).strip("/"), *parts])
 
 
 def asset_id(name: str) -> str:
@@ -69,69 +52,62 @@ def init():
     return ee()
 
 
-@functools.lru_cache(maxsize=1)
-def _http():
+def asset_info(name: str) -> dict | None:
+    """An asset's metadata (properties, bands, ...), or None if it does not exist."""
+    try:
+        return ee().data.getAsset(asset_id(name))
+    except Exception as e:  # noqa: BLE001
+        if "not found" in str(e).lower() or "does not exist" in str(e).lower():
+            return None
+        raise
+
+
+# --------------------------------------------------------------------------- #
+# Google Drive
+# --------------------------------------------------------------------------- #
+@functools.lru_cache(maxsize=2)
+def _http(quota_project: bool):
     from google.auth.transport.requests import AuthorizedSession, Request
 
     creds = ee().data.get_persistent_credentials()
+    if not quota_project and getattr(creds, "quota_project_id", None):
+        creds = creds.with_quota_project(None)
     if not creds.valid:
         creds.refresh(Request())
     return AuthorizedSession(creds)
 
 
-def _check(r, what: str):
+def _get(url: str, **kw):
+    """GET against the Drive API, with a message that says what to fix."""
+    r = _http(False).get(url, **kw)
+    if r.status_code == 403:
+        r = _http(True).get(url, **kw)          # with your project as quota project
+    if r.status_code == 403:
+        raise SystemExit(
+            "Google Drive refused the request (HTTP 403). Either the Earth Engine "
+            "login lacks Drive access (run `earthengine authenticate --force` and "
+            "allow Drive), or the Drive API is off in your project (Cloud Console → "
+            "APIs & Services → enable 'Google Drive API'; free, no billing).\n"
+            + r.text[:300])
     if r.status_code >= 400:
-        raise RuntimeError(f"Cloud Storage {what}: HTTP {r.status_code} {r.text[:300]}")
+        raise RuntimeError(f"Google Drive: HTTP {r.status_code} {r.text[:300]}")
     return r
 
 
-def upload(local: str | Path, name: str, content_type: str = "application/octet-stream") -> str:
-    """Upload a file to the bucket. Returns its gs:// URI."""
-    b = bucket()
-    with open(local, "rb") as f:
-        _check(_http().post(f"{_GCS}/upload/storage/v1/b/{b}/o",
-                            params={"uploadType": "media", "name": name},
-                            headers={"Content-Type": content_type}, data=f), "upload")
-    return f"gs://{b}/{name}"
+def drive_find(filename: str) -> list[dict]:
+    """Files of exactly this name in Drive, newest first."""
+    q = f"name = '{filename}' and trashed = false"
+    j = _get(_DRIVE, params={"q": q, "orderBy": "createdTime desc",
+                             "fields": "files(id,name,createdTime,size)"}).json()
+    return j.get("files", [])
 
 
-def download(name: str, dest: str | Path) -> Path:
-    """Download one object to `dest`."""
+def drive_download(file_id: str, dest: str | Path) -> Path:
+    """Download one Drive file to `dest`."""
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    r = _check(_http().get(f"{_GCS}/storage/v1/b/{bucket()}/o/{quote(name, safe='')}",
-                           params={"alt": "media"}, stream=True), f"download {name}")
+    r = _get(f"{_DRIVE}/{file_id}", params={"alt": "media"}, stream=True)
     with open(dest, "wb") as f:
         for chunk in r.iter_content(1 << 20):
             f.write(chunk)
     return dest
-
-
-def list_objects(prefix: str) -> list[str]:
-    """Object names under a prefix."""
-    out, token = [], None
-    while True:
-        params = {"prefix": prefix, "fields": "items(name),nextPageToken"}
-        if token:
-            params["pageToken"] = token
-        j = _check(_http().get(f"{_GCS}/storage/v1/b/{bucket()}/o", params=params),
-                   "list").json()
-        out += [i["name"] for i in j.get("items", [])]
-        token = j.get("nextPageToken")
-        if not token:
-            return out
-
-
-def exists(name: str) -> bool:
-    """Is there an object of this name?"""
-    return name in list_objects(name)
-
-
-def asset_properties(name: str) -> dict | None:
-    """Properties of an asset, or None if it does not exist."""
-    try:
-        return ee().data.getAsset(asset_id(name)).get("properties", {})
-    except Exception as e:  # noqa: BLE001
-        if "not found" in str(e).lower() or "does not exist" in str(e).lower():
-            return None
-        raise

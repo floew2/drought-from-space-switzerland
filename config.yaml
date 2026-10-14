@@ -236,16 +236,13 @@ synthetic:
 # `drought gee render` writes the shared ones into the two interactive scripts
 # in gee/, and CI checks that the committed scripts match.
 gee:
-  # The Earth Engine project holding the assets, and a Cloud Storage bucket in
-  # it. Empty on purpose: they are yours, not the repository's. Set them in a
-  # local file that is not committed, e.g. config.local.yaml:
-  #   gee: {project: <your-project>, bucket: <your-bucket>}
-  # and run `drought --config config.local.yaml ee ...`.
+  # The Earth Engine project holding the assets. Empty on purpose: it is yours,
+  # not the repository's. Set it in config.local.yaml (git-ignored):
+  #   gee: {project: <your-project>}
   project: null
-  bucket: null
-  bucket_prefix: drought-from-space     # every object this pipeline writes lives under here
+  drive_folder: drought-from-space       # Google Drive folder the exports land in
   assets:
-    mask: grassland_mask_sg              # uploaded by `drought ee upload-mask`
+    mask: grassland_mask_sg              # uploaded in the Code Editor, then `drought ee stamp-mask`
     parcels: nutzungsflaechen_           # + year, e.g. nutzungsflaechen_2025
   parcels_year: 2025                     # the cadastre the per-parcel work runs on
   parcel_code_field: lnf_code

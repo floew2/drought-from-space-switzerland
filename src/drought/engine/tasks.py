@@ -1,4 +1,4 @@
-"""Start table exports, wait for them, download and register what they wrote.
+"""Start table exports to Google Drive, wait, download and register what they wrote.
 
 Export names carry the CONFIG_HASH of the settings and mask they ran under
 (`..._cfg<hash>`), exactly as the rendered Code Editor scripts did, so
@@ -40,8 +40,8 @@ class Export:
     task: object = None
 
     @property
-    def object_name(self) -> str:
-        return session.object_name("exports", self.prefix)
+    def filename(self) -> str:
+        return f"{self.prefix}.csv"
 
     @property
     def local(self) -> Path:
@@ -49,11 +49,11 @@ class Export:
 
 
 def start(exp: Export) -> Export:
-    """Submit one export to Cloud Storage."""
+    """Submit one export to Google Drive (folder gee.drive_folder)."""
     ee = session.ee()
-    exp.task = ee.batch.Export.table.toCloudStorage(
+    exp.task = ee.batch.Export.table.toDrive(
         collection=exp.collection, description=exp.prefix[:100],
-        bucket=session.bucket(), fileNamePrefix=exp.object_name, fileFormat="CSV",
+        folder=str(CFG.gee.drive_folder), fileNamePrefix=exp.prefix, fileFormat="CSV",
         selectors=exp.selectors)
     exp.task.start()
     print(f"  started {exp.prefix}  (task {exp.task.id})")
@@ -88,10 +88,10 @@ def fetch(exp: Export) -> Path:
     """Download one finished export and register its provenance."""
     from ..provenance import register
 
-    name = exp.object_name + ".csv"
-    if name not in session.list_objects(exp.object_name):
-        raise FileNotFoundError(f"gs://{session.bucket()}/{name} not found")
-    session.download(name, exp.local)
+    found = session.drive_find(exp.filename)
+    if not found:
+        raise FileNotFoundError(f"{exp.filename} not found in Google Drive")
+    session.drive_download(found[0]["id"], exp.local)     # newest, if Drive holds two
     if exp.kind:
         register(exp.local, exp.kind)
     print(f"  -> {exp.local.relative_to(ROOT) if exp.local.is_relative_to(ROOT) else exp.local}"
@@ -122,7 +122,7 @@ def run(exports: list[Export], dry_run: bool = False) -> list[Path]:
         if e.local.exists():
             print(f"  {e.local.name} already here; skipped")
             continue
-        if e.object_name + ".csv" in session.list_objects(e.object_name):
+        if session.drive_find(e.filename):
             print(f"  {e.prefix} already exported; downloading")
         else:
             start(e)

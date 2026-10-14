@@ -9,7 +9,7 @@
     drought cuts detect --site S
     drought cuts score --site S
     drought gallery
-    drought ee check|upload-mask|trajectory|sensitivity|cuts|run-all
+    drought ee check|stamp-mask|trajectory|sensitivity|cuts|run-all
     drought gee render [--out DIR] [--check]
     drought provenance register|verify|show FILES [--kind KIND]
     drought results show
@@ -211,20 +211,20 @@ def _gee_render(a) -> None:
 
 def _ee(a) -> None:
     from .config import CFG
-    from .engine import cuts, imagery, sensitivity, session, tasks, trajectory, upload
+    from .engine import cuts, imagery, sensitivity, session, stamp, tasks, trajectory
 
     if a.action == "check":
-        print(f"  project {session.project()}, bucket gs://{session.bucket()}/"
-              f"{CFG.gee.bucket_prefix}")
+        print(f"  project {session.project()}; exports go to Drive folder "
+              f"{CFG.gee.drive_folder!r}")
         session.init()
-        session.list_objects(session.object_name(""))
-        print("  Earth Engine and the bucket are reachable")
+        session.drive_find("drought-from-space connectivity check")
+        print("  Earth Engine and Google Drive are reachable")
         sha = imagery.check_mask_asset()
-        print(f"  mask asset matches the local mask ({sha}); CONFIG_HASH "
+        print(f"  mask asset is stamped as the local mask ({sha}); CONFIG_HASH "
               f"{tasks.config_hash()}")
         return
-    if a.action == "upload-mask":
-        upload.upload_mask()
+    if a.action == "stamp-mask":
+        stamp.stamp_mask()
         return
     imagery.check_mask_asset()                       # before building anything
     if a.action == "trajectory":
@@ -375,9 +375,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     e = sub.add_parser("ee", help="run the Earth Engine exports from Python").add_subparsers(
         dest="action", required=True, metavar="ACTION")
-    e.add_parser("check", help="project, bucket and mask asset in order?").set_defaults(func=_ee)
-    e.add_parser("upload-mask", help="local mask -> bucket -> asset, stamped with its hash"
-                 ).set_defaults(func=_ee)
+    e.add_parser("check", help="project, Drive and mask asset in order?").set_defaults(func=_ee)
+    e.add_parser("stamp-mask", help="compare the uploaded asset with the local mask; "
+                 "stamp it with the mask's hash if they agree").set_defaults(func=_ee)
     for name, text in (("trajectory", "site-mean index series -> data/gee/"),
                        ("sensitivity", "purity-class series per site and system -> data/gee/"),
                        ("cuts", "per-parcel series per year -> data/gee/<site>/"),

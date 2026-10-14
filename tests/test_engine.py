@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from drought import config, gee, provenance
-from drought.engine import cuts, imagery, session, tasks, trajectory, upload
+from drought.engine import cuts, imagery, session, stamp, tasks, trajectory
 from drought.provenance import ProvenanceError
 
 
@@ -43,19 +43,55 @@ def test_other_or_unstamped_asset_is_refused(fake_mask, props, field):
 
 
 def test_missing_asset_is_refused(fake_mask, monkeypatch):
-    monkeypatch.setattr(session, "asset_properties", lambda name: None)
-    with pytest.raises(ProvenanceError, match="upload-mask"):
+    monkeypatch.setattr(session, "asset_info", lambda name: None)
+    with pytest.raises(ProvenanceError, match="stamp-mask"):
         imagery.check_mask_asset()
 
 
-def test_upload_manifest_names_bands_samples_and_stamps(fake_mask, monkeypatch):
-    monkeypatch.setattr(config.CFG.gee, "project", "p")
-    m = upload.manifest("gs://b/x.tif", fake_mask, "h" * 12)
-    assert m["name"] == "projects/p/assets/grassland_mask_sg"
-    assert [b["id"] for b in m["bands"]] == fake_mask["bands"]
-    assert [b["tilesetBandIndex"] for b in m["bands"]] == [0, 1, 2, 3]
-    assert {b["pyramidingPolicy"] for b in m["bands"]} == {"SAMPLE"}
-    assert m["properties"][imagery.MASK_SHA_PROPERTY] == fake_mask["sha256"]
+def _tiny_mask(path, shift=0.0, swap=False):
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    rng = np.random.default_rng(0)
+    arr = np.round(rng.uniform(0, 1, (4, 30, 40)) * (rng.uniform(0, 1, (1, 30, 40)) > 0.4),
+                   6).astype("float32")
+    if swap:
+        arr = arr[[1, 0, 2, 3]]
+    with rasterio.open(path, "w", driver="GTiff", height=30, width=40, count=4,
+                       dtype="float32", crs="EPSG:2056",
+                       transform=from_origin(2_722_000 + shift, 1_228_000, 10, 10)) as ds:
+        ds.write(arr)
+    return path
+
+
+def test_stamp_compares_the_same_cells(tmp_path):
+    """Reading the asset at the sampled cell centres must return the local values."""
+    import rasterio
+
+    f = _tiny_mask(tmp_path / "m.tif")
+    xy, vals, names = stamp.sample_cells(f, n=60)
+    assert names == ["mown", "grazed", "intensive", "extensive"]
+    assert (vals.max(axis=1) > 0).sum() >= 45            # three quarters on grassland
+    with rasterio.open(f) as ds:                          # the "asset", read at those centres
+        remote = {i: list(v) for i, v in enumerate(ds.sample([tuple(p) for p in xy]))}
+    assert stamp.compare(vals, remote) == (0, 0.0)
+
+
+@pytest.mark.parametrize("kind", ["swapped bands", "shifted grid", "cells missing"])
+def test_stamp_refuses_a_different_asset(tmp_path, kind):
+    import rasterio
+
+    f = _tiny_mask(tmp_path / "m.tif")
+    xy, vals, _ = stamp.sample_cells(f, n=60)
+    other = _tiny_mask(tmp_path / "o.tif", swap=kind == "swapped bands",
+                       shift=10.0 if kind == "shifted grid" else 0.0)
+    with rasterio.open(other) as ds:
+        remote = {i: list(v) for i, v in enumerate(ds.sample([tuple(p) for p in xy]))}
+    if kind == "cells missing":
+        remote = {i: v for i, v in remote.items() if i % 7}
+    missing, worst = stamp.compare(vals, remote)
+    assert missing > 0 or worst > stamp.TOLERANCE
 
 
 # --------------------------------------------------------------------------- #
@@ -91,9 +127,8 @@ def _trajectory_csv(path):
 def test_fetch_downloads_and_registers(fake_mask, monkeypatch, tmp_path):
     h = tasks.config_hash()
     exp = tasks.Export(None, trajectory.prefix(h), tmp_path, "trajectory")
-    monkeypatch.setattr(config.CFG.gee, "bucket", "b")
-    monkeypatch.setattr(session, "list_objects", lambda prefix: [exp.object_name + ".csv"])
-    monkeypatch.setattr(session, "download", lambda name, dest: _trajectory_csv(dest) or dest)
+    monkeypatch.setattr(session, "drive_find", lambda name: [{"id": "x", "name": name}])
+    monkeypatch.setattr(session, "drive_download", lambda fid, dest: _trajectory_csv(dest) or dest)
     path = tasks.fetch(exp)
     assert path.name == f"grassland_trajectory_multi_p90_cfg{h}.csv"
     assert provenance.verify(path, "trajectory")["registered_from"] == "earth engine export"
@@ -101,9 +136,8 @@ def test_fetch_downloads_and_registers(fake_mask, monkeypatch, tmp_path):
 
 def test_fetch_refuses_an_export_from_other_settings(fake_mask, monkeypatch, tmp_path):
     exp = tasks.Export(None, trajectory.prefix("0" * 12), tmp_path, "trajectory")
-    monkeypatch.setattr(config.CFG.gee, "bucket", "b")
-    monkeypatch.setattr(session, "list_objects", lambda prefix: [exp.object_name + ".csv"])
-    monkeypatch.setattr(session, "download", lambda name, dest: _trajectory_csv(dest) or dest)
+    monkeypatch.setattr(session, "drive_find", lambda name: [{"id": "x", "name": name}])
+    monkeypatch.setattr(session, "drive_download", lambda fid, dest: _trajectory_csv(dest) or dest)
     with pytest.raises(ProvenanceError):
         tasks.fetch(exp)
 
@@ -121,9 +155,9 @@ def test_ported_scripts_are_gone():
 def test_local_config_sets_only_where_not_how(tmp_path):
     raw = config.load(local=False).to_dict()
     ok = tmp_path / "config.local.yaml"
-    ok.write_text("gee: {project: my-proj, bucket: my-bucket}\n")
+    ok.write_text("gee: {project: my-proj, drive_folder: my-folder}\n")
     out = config._overlay_local(raw, ok)
-    assert (out["gee"]["project"], out["gee"]["bucket"]) == ("my-proj", "my-bucket")
+    assert (out["gee"]["project"], out["gee"]["drive_folder"]) == ("my-proj", "my-folder")
 
     bad = tmp_path / "bad.yaml"
     bad.write_text("mask: {purity_min: 0.5}\n")

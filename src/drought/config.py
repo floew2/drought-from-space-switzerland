@@ -48,11 +48,11 @@ class Config(SimpleNamespace):
         return node
 
 
-# A machine's own Earth Engine project and bucket live in config.local.yaml,
+# A machine's own Earth Engine project (and Drive folder) live in config.local.yaml,
 # which git ignores. It may set WHERE things are, never HOW they are computed:
 # a method setting in an uncommitted file would be a result nobody can reproduce.
 LOCAL_FILE = "config.local.yaml"
-LOCAL_KEYS = ("gee.project", "gee.bucket", "gee.bucket_prefix")
+LOCAL_KEYS = ("gee.project", "gee.drive_folder")
 
 
 def _overlay_local(raw: dict, local: Path) -> dict:
