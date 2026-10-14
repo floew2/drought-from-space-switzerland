@@ -439,12 +439,14 @@ condition series are not built from exactly the same observations.
 
 ### 5.3 Validation, as a supervised-learning problem without a model
 
-- **Reference data.** 65 field-years were labelled by hand in a purpose-built
+- **Reference data.** Field-years were labelled by hand in a purpose-built
   widget (`labelling.py`: plain HTML and JS embedded in the notebook, no
   dependencies). The labeller hides the detector's proposals, labels blind, then
   reveals them to compare. A label set copied from the detector measures nothing.
-  Labels are kept per site, because a detector validated on Linthebene has not
-  been validated on Rheintal.
+  All labels are from **Linthebene**. 65 existed when the detector was frozen.
+  Labelling continued afterwards, and the set now holds 143 field-years with
+  391 cuts. Labels are kept per site, because a detector validated on
+  Linthebene has not been validated on Rheintal, and it has not been.
 - **Scoring.** Each detection is matched one-to-one to an unmatched label within
   12 days, so two detections near one cut count as one hit and one false
   positive, not two hits.

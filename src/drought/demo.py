@@ -280,7 +280,7 @@ def _report(s: dict, T) -> None:
         print(f"  {grp:<10}{what:<38}{syn:<26}{real:<22}{kind}")
     print("\n  calibrated  the generator was solved to reproduce the real value")
     print("  emergent    not targeted; produced by the method acting on synthetic input")
-    print("  *           real detector scores are on the previous 20 m mask, pooled sites")
+    print("  *           real detector scores: previous 20 m mask, Linthebene labels only")
     print(f"\n  master set: {f['remain']:,} of {f['grassland_2025']:,} kept; planted "
           + ", ".join(f"{k} {v}" for k, v in f["planted"].items())
           + ".")
