@@ -117,6 +117,8 @@ drought ee trajectory --smoke   # one site, two years: read the EECU cost first
 drought ee trajectory           # -> data/gee/grassland_trajectory_multi_p90_cfg<hash>.csv
 drought ee sensitivity          # -> data/gee/purity_sensitivity_<site>_<system>_cfg<hash>.csv
 drought ee cuts --smoke         # current year, 100 parcels: read the EECU cost first
+drought ee cuts --labelled-only # only the hand-labelled parcel-years -> data/gee/<site>/labelled/
+drought cuts score --site linthebene --labelled   # re-score the frozen detector on them
 drought ee cuts                 # -> data/gee/<site>/cuts_<site>_<year>_cfg<hash>.csv
 ```
 
@@ -140,6 +142,15 @@ waiting can simply be run again: finished exports are downloaded, not repeated.
   unregistered or stale file (`provenance.require`).
 
 The smoke runs land in `output/ee_smoke/` and are not registered.
+
+**Cost.** The per-parcel cut extraction is by far the most expensive export.
+The smoke run (2026, 100 parcels) cost 76,000 EECU-s at Linthebene and
+18,000 at Rheintal. Linthebene lies on two MGRS tiles and has the most
+acquisitions. The full sample (250 parcels, eight years, two sites) is
+therefore of the order of a million EECU-s, several times the noncommercial
+Community tier's 150 EECU-hours a month. `--labelled-only` re-scores the
+detector on the labelled parcel-years alone. Cleaning works per parcel, so
+their series are the same as inside the full sample.
 
 ### For screenshots only — nothing to download
 ### For screenshots only — nothing to download

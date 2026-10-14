@@ -207,3 +207,16 @@ def test_every_export_builds_against_a_stand_in(fake_mask, monkeypatch):
     assert {"reduceRegion", "reduceRegions", "toBands", "linkCollection"} <= set(_Fake.calls)
     smoke = trajectory.exports(smoke=True)[0]
     assert "_SMOKE_cfg" in smoke.prefix and smoke.kind is None
+
+
+def test_labelled_only_exports_exactly_the_labelled_parcel_years(fake_mask, monkeypatch):
+    """The re-score extraction: one export per labelled year, only those parcels."""
+    monkeypatch.setattr(config.CFG.gee, "project", "p")
+    monkeypatch.setattr(session, "ee", lambda: _Fake())
+    labels = {"A|2026": [140], "B|2026": [150], "C|2022": [160]}
+    monkeypatch.setattr("drought.labels.load_labels", lambda site: labels)
+    assert cuts.labelled("linthebene") == {2026: ["A", "B"], 2022: ["C"]}
+    exps = cuts.exports(sites=["linthebene"], labelled_only=True)
+    assert [e.prefix.split("_cfg")[0] for e in exps] == [
+        "cuts_linthebene_2026_labelled", "cuts_linthebene_2022_labelled"]
+    assert all(e.kind == "cuts" and e.dest_dir.name == "labelled" for e in exps)

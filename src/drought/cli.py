@@ -126,7 +126,7 @@ def _precip(a) -> None:
 
 def _cuts_detect(a) -> None:
     import drought as dr
-    df = dr.load_site(a.site)
+    df = dr.load_site(a.site, labelled=a.labelled)
     ev = dr.detect.detect_all(df)
     print(dr.metrics.summarise(ev).to_string())
 
@@ -135,7 +135,7 @@ def _cuts_score(a) -> None:
     import drought as dr
 
     from . import changepoint, evaluate, labels
-    df = dr.load_site(a.site, verbose=False)
+    df = dr.load_site(a.site, verbose=False, labelled=a.labelled)
     lab = labels.check_labels(labels.load_labels(a.site), df)
     evaluate.assert_wired()
     print("heuristic (frozen configuration):")
@@ -153,7 +153,8 @@ def _cuts_score(a) -> None:
         "recall": h["recall"], "f1": h["f1"],
         "recall_per_year": [float(by_year.recall.min()), float(by_year.recall.max())],
         "changepoint_f1": cp["f1"]},
-        inputs=sorted(config.gee_dir(a.site).glob("cuts_*.csv")))
+        inputs=sorted((config.gee_dir(a.site) / ("labelled" if a.labelled else ""))
+                      .glob("cuts_*.csv")))
 
 
 def _gallery(a) -> None:
@@ -267,7 +268,8 @@ def _ee(a) -> None:
     elif a.action == "sensitivity":
         exps = sensitivity.exports(sites=a.site, regimes=a.regime)
     elif a.action == "cuts":
-        exps = cuts.exports(sites=a.site, only_years=a.year, smoke=a.smoke)
+        exps = cuts.exports(sites=a.site, only_years=a.year, smoke=a.smoke,
+                            labelled_only=a.labelled_only)
     else:                                            # run-all
         exps = (trajectory.exports() + sensitivity.exports() + cuts.exports())
     paths = tasks.run(exps, dry_run=a.dry_run)
@@ -404,6 +406,8 @@ def build_parser() -> argparse.ArgumentParser:
                              ("score", _cuts_score, "score against the hand labels")):
         c = cu.add_parser(name, help=text)
         c.add_argument("--site", required=True)
+        c.add_argument("--labelled", action="store_true",
+                       help="read data/gee/<site>/labelled/ (from `ee cuts --labelled-only`)")
         c.set_defaults(func=func)
 
     sub.add_parser("gallery", help="refresh docs/figures/{model,demo}").set_defaults(func=_gallery)
@@ -435,6 +439,9 @@ def build_parser() -> argparse.ArgumentParser:
         if name in ("trajectory", "cuts"):
             c.add_argument("--smoke", action="store_true",
                            help="a small run to measure cost; not registered")
+        if name == "cuts":
+            c.add_argument("--labelled-only", action="store_true",
+                           help="only the hand-labelled parcel-years: enough to re-score")
         c.add_argument("--dry-run", action="store_true",
                        help="check the mask asset and list the exports, start nothing")
         c.set_defaults(func=_ee)

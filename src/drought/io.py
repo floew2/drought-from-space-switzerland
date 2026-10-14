@@ -76,15 +76,18 @@ def reshape_wide(df: pd.DataFrame) -> pd.DataFrame:
     return med
 
 
-def load_cuts(site: str, years=None, verbose: bool = True) -> pd.DataFrame:
-    """All per-parcel cut CSVs for a site."""
-    files = sorted(gee_dir(site).glob("cuts_*.csv"))
+def load_cuts(site: str, years=None, verbose: bool = True,
+              labelled: bool = False) -> pd.DataFrame:
+    """All per-parcel cut CSVs for a site (or only the labelled parcel-years)."""
+    folder = gee_dir(site) / "labelled" if labelled else gee_dir(site)
+    files = sorted(folder.glob("cuts_*.csv"))
     if years:
         files = [f for f in files
                  if any(str(y) in f.stem for y in years)]
     if not files:
         raise FileNotFoundError(
-            f"no cuts_*.csv in {gee_dir(site)} — put the GEE exports there")
+            f"no cuts_*.csv in {folder} — run `drought ee cuts"
+            f"{' --labelled-only' if labelled else ''}`")
 
     frames, no_count = [], False
     from .provenance import verify

@@ -38,8 +38,8 @@ def __getattr__(name: str):
     raise AttributeError(f"module 'drought' has no attribute {name!r}")
 
 
-def load_site(site: str, verbose: bool = True):
+def load_site(site: str, verbose: bool = True, labelled: bool = False):
     """Read and clean one site's per-parcel cut data in one call."""
     from .clean import clean as _clean
     from .io import load_cuts
-    return _clean(load_cuts(site, verbose=verbose), verbose=verbose)
+    return _clean(load_cuts(site, verbose=verbose, labelled=labelled), verbose=verbose)

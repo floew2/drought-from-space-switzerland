@@ -44,8 +44,24 @@ def selectors(band_names: list[str]) -> list[str]:
     return [*INDEX_COLS, *(f"{b}_{s}" for b in band_names for s in STATS)]
 
 
-def sample(site: str, n: int | None = None):
-    """The parcel sample for a site, with area and elevation."""
+def labelled(site: str) -> dict[int, list[str]]:
+    """Hand-labelled parcels per year, from data/labels (parcel_id|year keys)."""
+    from ..labels import load_labels
+
+    out: dict[int, list[str]] = {}
+    for key in load_labels(site):
+        pid, year = key.rsplit("|", 1)
+        out.setdefault(int(year), []).append(pid)
+    return {y: sorted(v) for y, v in sorted(out.items(), reverse=True)}
+
+
+def sample(site: str, n: int | None = None, ids: list[str] | None = None):
+    """The parcel sample for a site, with area and elevation.
+
+    With `ids`, exactly those parcels (by their `system:index`, which is what
+    `parcel_id` holds) instead of the random sample. Cleaning works per parcel,
+    so their series are the same as they would be inside the full sample.
+    """
     ee = session.ee()
     c = CFG.gee.cuts
     aoi = imagery.site_geometry(site)
@@ -63,9 +79,10 @@ def sample(site: str, n: int | None = None):
                                     scale=90, tileScale=4)
                  .filter(ee.Filter.notNull(["elev_m"])))
     code = CFG.gee.parcel_code_field
-    return (with_elev.randomColumn("rnd", c.seed).sort("rnd").limit(n or c.sample_n)
-            .map(lambda f: f.set("parcel_id", f.get("system:index"))
-                 .set("lnf_code", f.get(code))))
+    chosen = (with_elev.filter(ee.Filter.inList("system:index", list(ids))) if ids else
+              with_elev.randomColumn("rnd", c.seed).sort("rnd").limit(n or c.sample_n))
+    return chosen.map(lambda f: f.set("parcel_id", f.get("system:index"))
+                      .set("lnf_code", f.get(code)))
 
 
 def stack(site: str, year: int):
@@ -86,22 +103,38 @@ def stack(site: str, year: int):
     return col.map(bands).toBands()
 
 
-def build(site: str, year: int, n: int | None = None):
+def build(site: str, year: int, n: int | None = None, ids: list[str] | None = None):
     """(FeatureCollection, selectors) for one site and year."""
     ee = session.ee()
     img = stack(site, year)
     names = img.bandNames().getInfo()          # metadata only: cheap
-    rows = img.reduceRegions(collection=sample(site, n),
+    rows = img.reduceRegions(collection=sample(site, n, ids),
                              reducer=ee.Reducer.median().combine(ee.Reducer.count(), "", True),
                              scale=CFG.gee.cuts.scale_m, tileScale=8)
     return rows, selectors(names)
 
 
-def exports(sites=None, only_years=None, smoke: bool = False) -> list[Export]:
-    """One export per site and year. A smoke run: the current year, 100 parcels."""
+def exports(sites=None, only_years=None, smoke: bool = False,
+            labelled_only: bool = False) -> list[Export]:
+    """One export per site and year. A smoke run: the current year, 100 parcels.
+
+    `labelled_only`: only the hand-labelled parcel-years, into
+    data/gee/<site>/labelled/ — enough to re-score the detector at a fraction of
+    the cost of the full sample.
+    """
     from ..config import ROOT
 
     h = config_hash()
+    if labelled_only:
+        out = []
+        for site in sites or list(CFG.gee.cuts.sites):
+            for year, ids in labelled(site).items():
+                if only_years and year not in only_years:
+                    continue
+                fc, sel = build(site, year, ids=ids)
+                out.append(Export(fc, f"cuts_{site}_{year}_labelled_cfg{h}",
+                                  gee_dir(site) / "labelled", "cuts", sel))
+        return out
     yrs = [CFG.project.current_year] if smoke else (only_years or years())
     out = []
     for site in sites or list(CFG.gee.cuts.sites):
