@@ -237,7 +237,8 @@ def _ee(a) -> None:
         exps = (trajectory.exports() + sensitivity.exports() + cuts.exports())
     paths = tasks.run(exps, dry_run=a.dry_run)
     if paths:
-        print(f"  {len(paths)} file(s) downloaded and registered")
+        n_reg = sum(1 for e in exps if e.kind and e.local in paths)
+        print(f"  {len(paths)} file(s) downloaded, {n_reg} registered")
 
 
 def _provenance(a) -> None:
