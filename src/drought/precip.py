@@ -363,9 +363,9 @@ def main(daily: pd.DataFrame | None = None, abbr: str | None = None,
         print(f"Water balance to DOY {n_days}: {s2[0]:.0f} mm "
               f"(median {s2[1]:.0f} mm), rank {s2[3]}")
 
-    axes[-1].set_xlabel("Month", fontsize=10, color="white")
-    fig.text(0.99, 0.004, "Data: MeteoSchweiz Open Data (SwissMetNet), CC-BY",
-             ha="right", va="bottom", fontsize=7.5, color="#6e7681")
+    # The credit is the x label (see trajectory.make_figure).
+    axes[-1].set_xlabel("Data: MeteoSchweiz Open Data (SwissMetNet), CC-BY",
+                        loc="left", fontsize=7.5, color="#6e7681")
     out = figures_dir("station") / f"precip_{abbr}_{CURRENT_YEAR}.png"
     fig.savefig(out, dpi=200, facecolor=fig.get_facecolor())
     print(f"  -> {out}")

@@ -427,7 +427,6 @@ def make_figure(site: str, regime: str, sub: pd.DataFrame):
                       fontweight="bold", color="white", pad=10)
     panel(axes[1], cum_base, cum_cur,
           f"Cumulative {INDEX} (season integral)", first=False)
-    axes[1].set_xlabel("Month", fontsize=10, color="white")
 
     pct, rank, upto = p["pct"], p["rank"], p["upto"]
     # Shade everything not contributing to the integral.
@@ -444,9 +443,10 @@ def make_figure(site: str, regime: str, sub: pd.DataFrame):
                  bbox=dict(facecolor="#161b22", edgecolor="#30363d",
                            boxstyle="round,pad=0.4"))
 
-    fig.text(0.99, 0.004, f"Sentinel-2 / Cloud Score+ · {INDEX} · "
-             "parcels: Nutzungsflächen",
-             ha="right", va="bottom", fontsize=7, color="#6e7681")
+    # The credit is the x label: the month ticks need no label, and a credit
+    # placed freely in the figure margin collided with the ticks.
+    axes[1].set_xlabel(f"Sentinel-2 / Cloud Score+ · {INDEX}\nparcels: Nutzungsflächen",
+                       loc="left", fontsize=7, color="#6e7681")
     out = str(figures_dir(site) / f"vi_trajectory_{INDEX}_{regime}.png")
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"  -> {out}")

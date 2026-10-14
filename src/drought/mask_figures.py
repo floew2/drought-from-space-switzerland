@@ -865,9 +865,11 @@ def figure_parcel_size(master=None, group: str | None = None, out: str | Path | 
     fig.suptitle("Swiss grassland parcels: small, and mostly edge",
                  fontsize=12.5, fontweight="bold", color="#ff3b30",
                  x=0.012, ha="left")
-    fig.supxlabel("A median field holds about a hundred 10 m pixels — but a "
-                  "shape index near 6 means much of it lies within a pixel or "
-                  "two of a boundary.", fontsize=7.5, color="#6e7681")
+    # Measured, not written in: the caption once claimed "about a hundred
+    # pixels" long after the size filter that made it true had gone.
+    cells = " · ".join(f"{n} {np.median(data[n][0]) / 0.01:.0f}" for n in names)
+    fig.supxlabel(f"10 m cells in a median field:  {cells}", fontsize=7.5,
+                  color="#6e7681")
     out = out or (figures_dir("mask") / "parcel_size.png")
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"\n  -> {out}")
