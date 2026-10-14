@@ -1,12 +1,12 @@
 # Reading a drought from space
 
 Sentinel-2 and MeteoSwiss station data show that the 2026 summer drought in the
-Canton of St. Gallen cut the season's grassland moisture signal by a quarter to
-a third. Every site and management system ranked last of eight years.
+Canton of St. Gallen cut the season's grassland moisture signal by roughly a
+quarter. Every site and management system ranked last of eight years.
 
 ![Linthebene, intensive meadows: 2026 NDMI against the 2019–2025 envelope](docs/figures/real/vi_trajectory_NDMI_intensive_linthebene.png)
 
-*Linthebene, intensive meadows, site-mean NDMI. Real data, run of {{RUN_DATE}}.
+*Linthebene, intensive meadows, site-mean NDMI. Real data, run of 14 October 2026.
 The input data cannot be published; the commands below run the same pipeline on
 synthetic data.*
 
@@ -23,25 +23,27 @@ make demo           # whole pipeline on synthetic data, ~80 s -> output/syntheti
 
 | | Linthebene | St. Galler Rheintal |
 |---|---|---|
-| Season NDMI integral, intensive meadows | **−33 %** | **−23 %** |
-| Season NDMI integral, extensive meadows | **−35 %** | **−30 %** |
+| Season NDMI integral, intensive meadows | **−27 %** | **−23 %** |
+| Season NDMI integral, extensive meadows | **−29 %** | **−28 %** |
 | Rank among 2019–2026 | 1 of 8 | 1 of 8 |
 
-The comparison is 2026 against the 2019–2025 median, integrated to DOY 245–250
-over the 75–100 days that every year observed. The deficit was not season-long.
-Spring ran at or above normal; the index collapsed through July to 0.09–0.15
-in mid-August and recovered sharply from early September.
+The comparison is 2026 against the 2019–2025 median over May to September
+(DOY 121–273), on the 103–114 days that every year observed. The deficit was not
+season-long. Spring ran at or above normal; the index collapsed through July to
+0.09–0.15 in mid-August and recovered sharply from early September.
 
 The station data, an entirely independent source, agree. St. Gallen recorded
-501 mm by 10 August, 61 % of the 1991–2020 median and the driest of 31 years.
-The climatic water balance P − ET0 ended at −84 mm, against a median of +324 mm.
+690 mm by 12 October, 61 % of the 1991–2020 median and the driest of 31 years.
+The climatic water balance P − ET0 stood at −74 mm, against a median of +494 mm.
 
-All mask-based numbers above were produced by the mask as it was then built:
-a single-Gaussian response model (σ 5.30 m) and a 0.25 ha parcel filter. The
-filter has since been removed ([METHOD §2.1](docs/METHOD.md#21-which-fields-the-master-parcel-set)). The repository now defaults
-to the model the method describes (see [METHOD §2.3](docs/METHOD.md#23-the-sensor-response)).
-On synthetic parcels the model switch moves retained area by 1–3 points. The
-real mask has not yet been rebuilt with either change.
+Every number above comes from the pipeline in this repository as it stands: the
+box ⊛ Gaussian sensor response, no parcel size filter, the Earth Engine exports
+run from Python, and every input checked against its provenance record. A
+preliminary run with an older mask had given larger deficits at Linthebene (−33
+and −35 %); [METHOD §3.4](docs/METHOD.md#34-result) says what changed and what
+did not. The result does not depend on the residual-haze filter: with it off,
+every series still ranks last, and three of four integrals move by under half a
+point.
 
 ## What this repository is evidence of
 

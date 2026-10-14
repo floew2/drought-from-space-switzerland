@@ -174,7 +174,8 @@ one Gaussian.
 implement this model. `purity_psf()` used a single Gaussian fitted to the whole
 system MTF, with σ 5.30 m. It read each cell as the mean of the 2 × 2 sub-cells
 around its centre. The deck and `figure_psf()`, meanwhile, showed box ⊛
-Gaussian. Every real number in §2.4 comes from the single-Gaussian mask.
+Gaussian. The preliminary real numbers came from that single-Gaussian mask;
+every real number now in this document comes from box ⊛ Gaussian.
 
 Both models reach MTF 0.25 at Nyquist, and their second moments agree to 1.5 %
 (5.30 m against 5.22 m). `mask.measured_response_fwhm()` passes a line source
@@ -308,7 +309,7 @@ contradiction in its own output:
 - **Cloud luck.** A gap counted as zero growth, so a well-observed year beat a
   poorly observed one regardless of vegetation. The symptom was a curve 15 %
   below the median that ranked only 4th of 8. Every year is now integrated over
-  exactly the days that **all** years observed: 75–100 of the 153 in the window,
+  exactly the days that **all** years observed: 103–114 of the 153 in the window,
   depending on site and management system.
 
 The integral stops at the current year's last observation, so it is a
@@ -330,8 +331,10 @@ on which one is shown.
 
 | | Linthebene | St. Galler Rheintal |
 |---|---|---|
-| intensive | −33 % | −23 % |
-| extensive | −35 % | −30 % |
+| intensive | −27 % | −23 % |
+| extensive | −29 % | −28 % |
+
+Run of 14 October 2026, DOY 121–273, 2019–2025 baseline.
 
 Every one of the four was the lowest of eight years. Spring ran at or above
 normal; the index collapsed through July to 0.09–0.15 in mid-August and
@@ -340,6 +343,34 @@ broke, not a failed year. The two management systems have very different
 cutting regimes, so their agreement rules out mowing as the explanation.
 Rheintal is consistently milder, as its position near the Rhine and its
 shallower groundwater would predict.
+
+**Robustness.** Each variant below changes one choice. 2026 ranks last of eight
+in every cell:
+
+| | final | to DOY 245 | haze filter off |
+|---|---|---|---|
+| Linthebene intensive | −27.3 % | −24.2 % | −27.6 % |
+| Linthebene extensive | −28.9 % | −29.1 % | −26.1 % |
+| Rheintal intensive | −22.7 % | −23.7 % | −22.9 % |
+| Rheintal extensive | −28.2 % | −29.4 % | −28.3 % |
+
+The haze filter removed more dates in 2026 (80) than in any other year (46–57).
+But 2026 also had the most dates, so the rate is 19.7 % against 13.4–18.7 %.
+Switching the filter off moves three integrals by under half a point and makes
+Linthebene extensive less negative by 2.8 points. That is the direction METHOD
+§3.1 expects: haze depresses NDVI rather than NDMI, so removing hazy dates
+removes noise, not drought.
+
+**What changed from the preliminary run.** A run on the earlier mask gave −33 %
+and −35 % at Linthebene, and −23 % and −30 % at Rheintal. Rheintal is unchanged
+within two points. Linthebene is smaller by six points in both systems. The
+longer window does not explain it: cut at DOY 245, close to where the
+preliminary integrals ended, Linthebene intensive is −24 %. Between the two
+runs the response model, the parcel set (no size filter), the date coverage
+(the preliminary export ended around DOY 245–250) and the Earth Engine implementation
+all changed, and the preliminary export cannot be re-read to separate them. The
+numbers above are the ones this repository reproduces. The preliminary ones are
+recorded here because they were presented before.
 
 ---
 
@@ -354,15 +385,16 @@ partial-month artefact. The figure shows the envelope of the 30 individual
 baseline years, so a reader can see whether 2026 lies outside the historical
 range, not merely below average.
 
-To 10 August 2026: **501 mm against a median of 826 mm**. That is 61 % of the
-median and the driest of 31 years in the comparison window.
+To 12 October 2026: **690 mm against a median of 1,135 mm**. That is 61 % of
+the median and the driest of 31 years in the comparison window. (To 10 August
+it was 501 mm against 826, also 61 %: the deficit did not close in autumn.)
 
 Precipitation alone understates a hot drought, so the second panel is the
 climatic water balance P − ET0, with ET0 from Hargreaves. This is an index of
-atmospheric demand against supply, **not** a soil water balance. It ended at
-**−84 mm against a median of +324 mm**. Because the quantity crosses zero, it is
-reported as a difference, never as a percentage. "−26 % of normal" would be a
-serious misreading of a 408 mm shortfall.
+atmospheric demand against supply, **not** a soil water balance. It stood at
+**−74 mm against a median of +494 mm** on 12 October. Because the quantity
+crosses zero, it is reported as a difference, never as a percentage. "−15 % of
+normal" would be a serious misreading of a 568 mm shortfall.
 
 ---
 
@@ -628,8 +660,8 @@ in the same files and schemas, deterministically from one seed:
 | intensive median ha / < 0.5 ha / shape | 0.70 / 42 % / 5.54 | 0.67 / 43 % / 5.56 | calibrated |
 | extensive median ha / < 0.5 ha / shape | 0.20 / 84 % / 6.35 | 0.19 / 85 % / 6.44 | calibrated |
 | mown median ha / < 0.5 ha / shape | 0.45 / 53 % / 5.76 | 0.42 / 54 % / 5.75 | emergent |
-| integrals (four) | −33 / −35 / −23 / −30 %, rank 1/8 | same | calibrated |
-| precipitation, P − ET0 to 10 Aug | 501 mm, −84 mm | same | calibrated |
+| integrals (four) | −27 / −29 / −23 / −28 %, rank 1/8 | same | calibrated |
+| precipitation, P − ET0 to 12 Oct | 689 mm, −75 mm | 690 mm, −74 mm | calibrated |
 | area ratio intensive, > 0 / ≥ 0.9 | 1.54 / 0.74 | 1.47 / 0.80 | emergent |
 | area ratio extensive, > 0 / ≥ 0.9 | 3.18 / 0.36 | 3.62 / 0.45 | emergent |
 | master set retained | 79.1 % | 81.3 % | planted |

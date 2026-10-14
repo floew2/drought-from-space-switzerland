@@ -259,10 +259,13 @@ def _report(s: dict, T) -> None:
             add("condition", f"{site} {reg} integral (rank)",
                 f"{t['integral_pct']:+.0f}% ({t['rank']}/8)", f"{v:+.0f}% (1/8)", "calibrated")
     p = s["precip"]
-    add("precip", "P to 10 Aug, % of median (rank)",
+    pt = T.PRECIP
+    add("precip", "P to DOY " + str(pt["end_doy"]) + ", % of median (rank)",
         f"{p['precip_mm']:.0f} mm, {p['precip_pct_of_median']:.0f}% ({p['precip_rank']}/31)",
-        "501 mm, 61% (1/31)", "calibrated")
-    add("precip", "P - ET0 to 10 Aug", f"{p['wb_mm']:+.0f} mm", "-84 mm", "calibrated")
+        f"{pt['p_2026_mm']:.0f} mm, {100 * pt['p_2026_mm'] / pt['p_median_mm']:.0f}% (1/31)",
+        "calibrated")
+    add("precip", "P - ET0 to DOY " + str(pt["end_doy"]), f"{p['wb_mm']:+.0f} mm",
+        f"{pt['wb_2026_mm']:+.0f} mm", "calibrated")
     for site, d in s["detector"].items():
         add("detector", f"{site} P / R / F1",
             f"{d['precision']:.2f} / {d['recall']:.2f} / {d['f1']:.2f}",

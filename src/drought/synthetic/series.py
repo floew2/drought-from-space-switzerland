@@ -189,7 +189,7 @@ def _draw_ok(site, acq_by_year, setup, tj) -> bool:
     land in that range for both regimes — and the real integral is reachable
     within the collapse model's range.
     """
-    lo, hi = T.SHARED_DAYS
+    lo, hi = T.SYNTHETIC_SHARED_DAYS
     for regime, (years_rng, sub_seed) in setup.items():
         drop = _minimum_drop(site, regime, years_rng)
         res = {}
@@ -254,7 +254,7 @@ def trajectories(rng: np.random.Generator, cfg=None, verbose: bool = True) -> pd
             raise RuntimeError(f"{site}: no cloud draw matched the observed record")
         if verbose and calibrated:
             print(f"    {site}: cloud draw {n_draws} accepted "
-                  f"({T.SHARED_DAYS[0]}-{T.SHARED_DAYS[1]} shared days, 8 years, as observed)")
+                  f"({T.SYNTHETIC_SHARED_DAYS[0]}-{T.SYNTHETIC_SHARED_DAYS[1]} shared days, 8 years, as observed)")
         for regime in ("intensive", "extensive"):
             years_rng, sub_seed = setup[regime]
             drop = _minimum_drop(site, regime, years_rng)

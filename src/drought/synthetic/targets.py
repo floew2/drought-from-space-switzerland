@@ -11,7 +11,7 @@ Provenance keys:
     geometry  `mask_figures.figure_parcel_size()` on the master set, full extent
     area      `mask.area_table()`, clipped to the raster window
     traj      `trajectory` season NDMI integral, 2026 against the 2019–2025 median
-    precip    `precip.main()`, MeteoSwiss station St. Gallen, to 10 August 2026
+    precip    `precip.main()`, MeteoSwiss station St. Gallen, to 12 October 2026
     detect    `evaluate.score()` on 65 hand-labelled parcel-years — extractions on
               the PREVIOUS 20 m mask, not yet re-run on the 10 m mask
 """
@@ -65,24 +65,31 @@ AREA_RATIO = {
 }
 
 # --- grassland condition (provenance: traj) -----------------------------------
-# season NDMI integral, 2026 vs the 2019–2025 median, %; rank 1 of 8 everywhere
+# season NDMI integral, 2026 vs the 2019–2025 median, %; rank 1 of 8 everywhere.
+# Run of 2026-10-14, DOY 121–273 (the preliminary run had -33/-35/-23/-30 to
+# DOY 245–250; METHOD §3.4).
 INTEGRAL_PCT = {
-    ("linthebene", "intensive"): -33.0,
-    ("linthebene", "extensive"): -35.0,
-    ("rheintal", "intensive"): -23.0,
-    ("rheintal", "extensive"): -30.0,
+    ("linthebene", "intensive"): -27.3,
+    ("linthebene", "extensive"): -28.9,
+    ("rheintal", "intensive"): -22.7,
+    ("rheintal", "extensive"): -28.2,
 }
 NDMI_MIN_AUGUST = (0.09, 0.15)    # the 2026 minimum, mid-August
-INTEGRAL_END_DOY = (245, 250)     # integrals run to here
-SHARED_DAYS = (75, 100)           # days observed in every year, of 153
+INTEGRAL_END_DOY = (273, 273)     # real integrals run to here (the window end)
+SHARED_DAYS = (103, 114)          # days observed in every year, of 153
+# The synthetic 2026 season still ends in early September (END_2026 in
+# series.py), as the preliminary exports did, and its draws are accepted at
+# 75-100 shared days. The integrals are solved to the values above regardless;
+# extending the synthetic season to October is not needed to test the method.
+SYNTHETIC_SHARED_DAYS = (75, 100)
 
 # --- precipitation (provenance: precip) ---------------------------------------
 PRECIP = {
-    "end_doy": 222,               # 10 August 2026
-    "p_2026_mm": 501.0,
-    "p_median_mm": 826.0,         # 61 % of median, rank 1 of 31
-    "wb_2026_mm": -84.0,          # P - ET0 (Hargreaves)
-    "wb_median_mm": 324.0,
+    "end_doy": 285,               # 12 October 2026
+    "p_2026_mm": 690.0,
+    "p_median_mm": 1135.0,        # 61 % of median, rank 1 of 31
+    "wb_2026_mm": -74.0,          # P - ET0 (Hargreaves)
+    "wb_median_mm": 494.0,
 }
 
 # --- cut detector (provenance: detect) ----------------------------------------

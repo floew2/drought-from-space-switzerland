@@ -19,13 +19,14 @@ copied in by hand from a real run ([rules](figures/real/README.md)).
 
 ### Grassland condition, season NDMI against 2019–2025
 
-Run of {{RUN_DATE}}. Mask built with the single-Gaussian response model; see
-[METHOD §2.3](METHOD.md#23-the-sensor-response).
+Run of 14 October 2026. Mask built with the box ⊛ Gaussian response model and
+no size filter ([METHOD §2](METHOD.md#2-the-grassland-mask)); integrals over
+DOY 121–273.
 
 | | intensive meadows | extensive meadows |
 |---|---|---|
-| **Linthebene** | ![](figures/real/vi_trajectory_NDMI_intensive_linthebene.png) −33 %, rank 1 of 8 | ![](figures/real/vi_trajectory_NDMI_extensive_linthebene.png) −35 %, rank 1 of 8 |
-| **St. Galler Rheintal** | ![](figures/real/vi_trajectory_NDMI_intensive_rheintal.png) −23 %, rank 1 of 8 | ![](figures/real/vi_trajectory_NDMI_extensive_rheintal.png) −30 %, rank 1 of 8 |
+| **Linthebene** | ![](figures/real/vi_trajectory_NDMI_intensive_linthebene.png) −27 %, rank 1 of 8 | ![](figures/real/vi_trajectory_NDMI_extensive_linthebene.png) −29 %, rank 1 of 8 |
+| **St. Galler Rheintal** | ![](figures/real/vi_trajectory_NDMI_intensive_rheintal.png) −23 %, rank 1 of 8 | ![](figures/real/vi_trajectory_NDMI_extensive_rheintal.png) −28 %, rank 1 of 8 |
 
 Top panel: site-mean NDMI, with the 2019–2025 envelope and median, 2026 in red,
 and the raw 2026 observations as dots. Bottom panel: the season integral over
@@ -35,8 +36,8 @@ the days every year observed (unshaded). [METHOD §3](METHOD.md#3-grassland-cond
 
 ![Cumulative precipitation and P − ET0, 2026 against 1991–2020](figures/real/precip_stg_2026.png)
 
-501 mm to 10 August, 61 % of the 1991–2020 median, the driest of 31 years.
-P − ET0 (Hargreaves) ended at −84 mm, against a median of +324 mm.
+690 mm to 12 October, 61 % of the 1991–2020 median, the driest of 31 years.
+P − ET0 (Hargreaves) stood at −74 mm, against a median of +494 mm.
 Source: MeteoSwiss. [METHOD §4](METHOD.md#4-precipitation-and-water-balance).
 
 ### Field size and shape, and what the purity threshold costs

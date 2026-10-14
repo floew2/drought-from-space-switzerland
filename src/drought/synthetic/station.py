@@ -6,9 +6,9 @@ tre200dx, tre200dn) so `precip` reads it through the same code path as the
 real files.
 
 Calibrated to the real result (targets.PRECIP): the 1991-2020 median
-cumulative precipitation to 10 August is 826 mm and 2026 reaches 501 mm, the
-driest of 31; the Hargreaves water balance P - ET0 has a median of +324 mm and
-2026 ends at -84 mm. Precipitation is scaled to hit the totals exactly; ET0 is
+cumulative precipitation to 12 October is 1,135 mm and 2026 reaches 690 mm,
+the driest of 31; the Hargreaves water balance P - ET0 has a median of +494 mm
+and 2026 stands at -74 mm (targets.PRECIP). Precipitation is scaled to hit the totals exactly; ET0 is
 hit by solving for a temperature-range factor (baseline) and a summer heat
 anomaly (2026, on top of a 30 % wider daily range under clear skies).
 """
@@ -68,7 +68,7 @@ def _cum_to(series: pd.Series, year: int, end_doy: int) -> float:
 
 
 def generate(rng: np.random.Generator) -> pd.DataFrame:
-    """Daily station series 1991-01-01 .. 2026-08-10, calibrated.
+    """Daily station series 1991-01-01 .. the target day of 2026, calibrated.
 
     Returns:
         DataFrame indexed by date with rre150d0, tre200d0, tre200dx, tre200dn.
