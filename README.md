@@ -57,7 +57,7 @@ in brief:
   the polygon area, because the response reaches past every boundary. Seeing
   it fall below 1 exposed a mask design that zeroed the halo, and the mask was
   rebuilt polygon-first. Matching parcels by centroid kept 43 %; matching by
-  area overlap kept 86 %.
+  area overlap kept 86 % (81 % now that fields down to 0.05 ha are included).
 - **The cut detector uses machine-learning methodology without a learned
   model.** It was tuned on 42 hand-labelled parcel-years and then frozen.
   Validated on all 65, F1 went from 0.911 to 0.912, and recall per year was

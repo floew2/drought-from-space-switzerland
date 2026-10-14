@@ -7,7 +7,7 @@ generator (to calibrate) and the demo report (to compare) do.
 
 Provenance keys:
     master    `mask.master_parcels()` on the 2017–2025 Nutzungsflächen, full
-              extent; box ⊛ Gaussian mask, 0.05 ha sliver floor (2026-10-13)
+              extent; box ⊛ Gaussian mask, 0.05 ha floor on 2025 only (2026-10-14)
     geometry  `mask_figures.figure_parcel_size()` on the master set, full extent
     area      `mask.area_table()`, clipped to the raster window
     traj      `trajectory` season NDMI integral, 2026 against the 2019–2025 median
@@ -19,40 +19,38 @@ Provenance keys:
 from __future__ import annotations
 
 # --- master parcel set (provenance: master) ----------------------------------
-# First 10 m build, 2026-10-13: no size filter, but the 0.05 ha sliver floor
-# still ran on past deliveries (METHOD §6, #14). The 2025 count is unaffected;
-# everything measured on the master set (remain, category totals, geometry,
-# area ratios) is re-measured on the corrected rule. The run before, with the 0.25 ha filter on every delivery
-# (#11), had 40,205 / 34,586 / 80,850 ha.
+# Measured 2026-10-14: no size filter, the 0.05 ha sliver floor on the 2025
+# delivery only (METHOD §2.1, §6 #14). The run with the 0.25 ha filter on every
+# delivery (#11) had 40,205 / 34,586 / 80,850 ha.
 FUNNEL = {
     "grassland_2025": 66_843,     # grassland parcels >= 0.05 ha in 2025
-    "dropped_not_grassland": 7_540,
-    "dropped_changed_category": 5_223,
+    "dropped_not_grassland": 7_133,
+    "dropped_changed_category": 5_378,
     "exempt_930": 2_418,          # Sömmerung, present only in the latest delivery
-    "remain": 54_080,             # 80.9 %
-    "remain_ha": 83_633,
+    "remain": 54_332,             # 81.3 %
+    "remain_ha": 83_662,
 }
-HELD_ALL_YEARS_SHARE = 0.773      # of the 2025 grassland parcels, 9 of 9 years
+HELD_ALL_YEARS_SHARE = 0.777      # of the 2025 grassland parcels, 9 of 9 years
 
 CATEGORY_TOTALS = {               # parcels, ha — master set, full extent
-    "mown": (45_108, 47_019),
-    "grazed": (8_972, 36_614),
-    "intensive": (32_899, 43_349),
-    "extensive": (12_202, 3_661),
+    "mown": (45_331, 47_044),
+    "grazed": (9_001, 36_619),
+    "intensive": (32_991, 43_359),
+    "extensive": (12_332, 3_676),
 }
 
 # --- parcel geometry (provenance: geometry) -----------------------------------
 # median ha, share < 0.5 ha, median shape index (perimeter / sqrt(area))
 GEOMETRY = {
-    "intensive": {"median_ha": 0.67, "lt_05": 0.42, "median_shape": 5.56},
-    "extensive": {"median_ha": 0.19, "lt_05": 0.85, "median_shape": 6.43},
-    "mown": {"median_ha": 0.43, "lt_05": 0.54, "median_shape": 5.75},
-    "grazed": {"median_ha": 0.58, "lt_05": 0.45, "median_shape": 6.35},
+    "intensive": {"median_ha": 0.67, "lt_05": 0.43, "median_shape": 5.56},
+    "extensive": {"median_ha": 0.19, "lt_05": 0.85, "median_shape": 6.44},
+    "mown": {"median_ha": 0.42, "lt_05": 0.54, "median_shape": 5.75},
+    "grazed": {"median_ha": 0.58, "lt_05": 0.46, "median_shape": 6.35},
 }
-# The shape index has a long upper tail: 2,309 of 99,181 parcel-category
-# entries (2.3 %) exceed 16. Under the old 0.25 ha filter it was about two in
+# The shape index has a long upper tail: 2,344 of 99,655 parcel-category
+# entries (2.4 %) exceed 16. Under the old 0.25 ha filter it was about two in
 # 5,000. The small parcels the filter removed include many narrow strips.
-SHAPE_TAIL_GT16 = 2_309 / 99_181
+SHAPE_TAIL_GT16 = 2_344 / 99_655
 
 # --- area retained by purity threshold (provenance: area) ----------------------
 # observed area / polygon area at purity > 0 and at >= 0.9, both clipped to the
@@ -63,7 +61,7 @@ AREA_RATIO = {
     "mown": (1.48, 0.80),
     "grazed": (1.45, 0.87),
     "intensive": (1.47, 0.80),
-    "extensive": (3.61, 0.45),
+    "extensive": (3.62, 0.45),
 }
 
 # --- grassland condition (provenance: traj) -----------------------------------

@@ -61,8 +61,9 @@ selected, and purity is computed from those polygons alone.
   2025 field "held category C in year Y" if at least 80 % of its area falls
   inside year Y's grassland of category C. Outlines are redrawn, split and
   merged between annual deliveries, so every method that tried to follow an
-  individual parcel failed. Centroid matching kept 43 %; overlap matching keeps
-  86 %.
+  individual parcel failed. Under the old 0.25 ha filter, centroid matching
+  kept 43 % and overlap matching 86 %. On every field down to 0.05 ha, overlap
+  matching keeps 81 %.
 - **Code 930 (Sömmerung) is exempt** from the persistence test, rather than
   failing it. It appears only in the most recent delivery, so there is nothing
   to check it against. That is a schema change, not a change of land use.
@@ -88,24 +89,31 @@ under the box ⊛ Gaussian response:
 
 | shape index | 0.05 ha | 0.10 | 0.15 | 0.20 | 0.25 | 0.30 | 0.40 | 0.50 |
 |---|---|---|---|---|---|---|---|---|
-| 4.0 (square) | 40 % | 100 % | 100 % | 100 % | 100 % | 100 % | 100 % | 100 % |
-| 5.72 (median intensive) | 0 % | 0 % | 0 % | 100 % | 100 % | 100 % | 100 % | 100 % |
-| 6.29 (median extensive) | 0 % | 0 % | 0 % | 5 % | 95 % | 100 % | 100 % | 100 % |
-| 8.0 | 0 % | 0 % | 0 % | 0 % | 0 % | 0 % | 72 % | 100 % |
+| 4.0 (square) | 45 % | 100 % | 100 % | 100 % | 100 % | 100 % | 100 % | 100 % |
+| 5.56 (median intensive) | 0 % | 0 % | 6 % | 98 % | 100 % | 100 % | 100 % | 100 % |
+| 6.44 (median extensive) | 0 % | 0 % | 0 % | 0 % | 94 % | 100 % | 100 % | 100 % |
+| 8.0 | 0 % | 0 % | 0 % | 0 % | 0 % | 0 % | 66 % | 100 % |
+
+(200 random placements and orientations per cell.)
 
 A compact 0.1 ha field is observable; a 0.3 ha strip with shape index 8 is
 not. A fixed area cut gets both wrong. Purity gets both right, by definition.
 
-Real funnel, full extent. **This was measured under the old 0.25 ha filter, so
-it is provisional.** It will be re-measured on the next real run.
+Real funnel, full extent, 14 October 2026:
 
 ```
- 40,205  grassland parcels >= 0.25 ha in 2025
-  3,592  dropped — not grassland in enough years
-  2,027  dropped — changed management category
-  2,137  exempt (code 930, latest delivery only)
- 34,586  remain (86.0 %), 80,850 ha
+ 66,843  grassland parcels >= 0.05 ha in 2025
+  7,133  dropped — not grassland in enough years
+  5,378  dropped — changed management category
+  2,418  exempt (code 930, latest delivery only)
+ 54,332  remain (81.3 %), 83,662 ha;  77.7 % held their category all nine years
 ```
+
+Under the old 0.25 ha filter the same cadastre gave 40,205 parcels, of which
+34,586 (86.0 %, 80,850 ha) remained. Without the filter the master set holds
+57 % more fields (54,332) but only 3.5 % more area: the fields the filter
+removed were small. Whether they
+contribute anything is then purity's decision (§2.4).
 
 The analysis keeps two category systems, and they do not nest:
 
@@ -119,19 +127,21 @@ gives a curve that belongs to neither.
 
 ### 2.2 Why purity matters: the fields are small and mostly edge
 
-Real master set, measured under the old 0.25 ha filter (provisional):
+Real master set, full extent:
 
 | category | parcels | median ha | < 0.5 ha | median shape index | 10 m pixels in a median field |
 |---|---|---|---|---|---|
-| intensive | 23,758 | 1.11 | 21 % | 5.72 | 111 |
-| extensive | 4,348 | 0.45 | 58 % | 6.29 | 45 |
-| mown | 28,112 | 0.93 | 26 % | 5.80 | 93 |
-| grazed | 6,474 | 0.99 | 25 % | 6.61 | 99 |
+| intensive | 32,991 | 0.67 | 43 % | 5.56 | 67 |
+| extensive | 12,332 | 0.19 | 85 % | 6.44 | 19 |
+| mown | 45,331 | 0.42 | 54 % | 5.75 | 42 |
+| grazed | 9,001 | 0.58 | 46 % | 6.35 | 58 |
 
 The shape index is perimeter / √area, where 4.0 is a perfect square. A median
-intensive field holds about a hundred 10 m pixels, which sounds comfortable.
-But a shape index near 6 means a long, narrow field, and much of it lies within
-a pixel or two of its boundary.
+intensive field holds 67 cells of 10 m; a median extensive meadow holds 19. And
+a shape index near 6 means a long, narrow field, much of it within a pixel or
+two of its boundary. 2.4 % of the parcels have a shape index above 16: strips
+along roads, streams and field edges. Under the 0.25 ha filter it was about
+two in 5,000, because most strips are small.
 
 This is also why the grid is **10 m**, the Sentinel-2 native grid, rather than
 the 20 m used earlier. A 0.44 ha field covers 11 cells at 20 m and 44 at 10 m,
@@ -201,20 +211,21 @@ per band, while one representative value is used here.
 
 ### 2.4 What the threshold costs
 
-Real data, master set clipped to the raster window. These numbers were measured
-with the single-Gaussian model and the old 0.25 ha filter, so they are
-provisional:
+Real data, master set clipped to the raster window (box ⊛ Gaussian response):
 
 | category | parcels | polygon ha | observed / polygon area at purity > 0 | at ≥ 0.9 |
 |---|---|---|---|---|
-| mown | 23,662 | 40,116 | 1.54 | 0.84 |
-| grazed | 5,268 | 18,418 | 1.49 | 0.88 |
-| intensive | 20,094 | 37,996 | 1.54 | 0.84 |
-| extensive | 3,563 | 2,112 | 3.40 | 0.56 |
+| mown | 37,483 | 42,052 | 1.48 | 0.80 |
+| grazed | 7,488 | 18,772 | 1.45 | 0.87 |
+| intensive | 27,400 | 39,039 | 1.47 | 0.80 |
+| extensive | 10,076 | 3,004 | 3.62 | 0.45 |
 
-At the threshold of 0.9, intensive meadows keep 84 % of their mapped area. The
-small, convoluted extensive meadows keep 56 %, which is the price of measuring
-them without their neighbours mixed in.
+At the threshold of 0.9, intensive meadows keep 80 % of their mapped area. The
+small, convoluted extensive meadows keep 45 %, which is the price of measuring
+them without their neighbours mixed in. Both are lower than under the old size
+filter (84 % and 56 %): the set now includes the small fields, and those hold
+the least clean area. That is the filter's work being done by purity instead,
+field by field.
 
 **The ratio at > 0 must exceed 1.** The response reaches past every boundary,
 so the cells it touches always cover more ground than the polygons. This is the
@@ -543,7 +554,7 @@ Found while packaging this repository:
 | 11 | The 0.25 ha size filter also ran on **past** deliveries | The synthetic cadastre knows which fields are stable, and the persistence test still dropped some | A field whose redrawn outline dipped below 0.25 ha in one year, or which was split into parts below it, counted as "not grassland" that year. On the synthetic cadastre the old rule dropped 520 of 4,040 stable fields (all small) and retained 75.3 %. **Removed**, not patched: the filter duplicated purity's job ([§2.1](#21-which-fields-the-master-parcel-set)). `sliver_floor_m2=2500, floor_past_years=True` reproduces the old behaviour |
 | 12 | Geometry repair silently halved figure-eight outlines | A regression test for bug 4's malformed rings, extended to keep area | `buffer(0)` ran first and "repaired" a self-crossing outline into a *valid* polygon with one lobe missing, so `make_valid`, which keeps both, never saw it. Order reversed: `make_valid` first, `buffer(0)` only as a fallback. The synthetic cadastre has no broken outlines, so the demo is unchanged; on the real deliveries the repair count is printed on every build |
 | 13 | The build summary divided **clipped** pixels by **unclipped** polygons | The first real build printed area ratios at > 0 below 1 (grazed 0.74, mown 1.32), which bug 1 established is impossible | With `mask.clip_bbox_lv95` set, parcels reach past the grid. Their outside area entered the denominator while their pixels could not exist; summering pastures, mostly outside the box, were hit hardest. Only the printed summary was wrong: the mask is unchanged (bit-identical), and `area_table`, which the figures and `results.json` use, always clipped. The summary now clips the same way |
-| 14 | The 0.05 ha sliver floor also ran on **past** deliveries | Recalibrating the synthetic cadastre to the real size distribution, which has many fields of 0.05–0.25 ha: 451 of 6,437 planted-stable fields failed persistence | Bug 11 at a smaller scale. A field redrawn or split below 0.05 ha in one year lost that year's coverage. The floor now applies to the 2025 delivery only, and synthetic losses fell to 128. Those are 23 fields whose 2025 outline came out below the floor, and 105 narrow strips (median shape index 14). Overlap matching cannot follow a strip a few metres wide through a 0.5 m redraw. **None of the 128 can hold a clean cell on its own** (highest own purity 0.76), so the analysed signal is unaffected; they leave only halo. The demo now fails if a lost stable field could hold a clean cell. The first real 10 m build (13 October) still had this floor on past deliveries; its funnel is superseded |
+| 14 | The 0.05 ha sliver floor also ran on **past** deliveries | Recalibrating the synthetic cadastre to the real size distribution, which has many fields of 0.05–0.25 ha: hundreds of planted-stable fields failed persistence (557 of 6,473 on the current synthetic cadastre) | Bug 11 at a smaller scale. A field redrawn or split below 0.05 ha in one year lost that year's coverage. The floor now applies to the 2025 delivery only, and synthetic losses fall to 164. Those are 32 fields whose 2025 outline came out below the floor, and 132 narrow strips (median shape index 14). Overlap matching cannot follow a strip a few metres wide through a 0.5 m redraw. **None of the 164 can hold a clean cell on its own** (highest own purity 0.74), so the analysed signal is unaffected; they leave only halo. The demo now fails if a lost stable field could hold a clean cell. On the real cadastre the fix kept 252 more fields (54,080 → 54,332; 80.9 % → 81.3 %), far fewer than the synthetic estimate suggested, so the synthetic redraw model (0.5 m per vertex, every year) seems to move outlines more than real deliveries do |
 
 ---
 
@@ -614,19 +625,21 @@ in the same files and schemas, deterministically from one seed:
 
 | quantity | synthetic | real | |
 |---|---|---|---|
-| intensive median ha / < 0.5 ha / shape | 0.69 / 41 % / 5.53 | 0.67 / 42 % / 5.56 | calibrated |
-| extensive median ha / < 0.5 ha / shape | 0.20 / 84 % / 6.34 | 0.19 / 85 % / 6.43 | calibrated |
-| mown median ha / < 0.5 ha / shape | 0.46 / 52 % / 5.73 | 0.43 / 54 % / 5.75 | emergent |
+| intensive median ha / < 0.5 ha / shape | 0.70 / 42 % / 5.54 | 0.67 / 43 % / 5.56 | calibrated |
+| extensive median ha / < 0.5 ha / shape | 0.20 / 84 % / 6.35 | 0.19 / 85 % / 6.44 | calibrated |
+| mown median ha / < 0.5 ha / shape | 0.45 / 53 % / 5.76 | 0.42 / 54 % / 5.75 | emergent |
 | integrals (four) | −33 / −35 / −23 / −30 %, rank 1/8 | same | calibrated |
 | precipitation, P − ET0 to 10 Aug | 501 mm, −84 mm | same | calibrated |
-| area ratio intensive, > 0 / ≥ 0.9 | 1.53 / 0.75 | 1.47 / 0.80 | emergent |
-| area ratio extensive, > 0 / ≥ 0.9 | 3.27 / 0.36 | 3.61 / 0.45 | emergent |
-| master set retained | 79.1 % | 80.9 %\* | planted |
+| area ratio intensive, > 0 / ≥ 0.9 | 1.54 / 0.74 | 1.47 / 0.80 | emergent |
+| area ratio extensive, > 0 / ≥ 0.9 | 3.18 / 0.36 | 3.62 / 0.45 | emergent |
+| master set retained | 79.1 % | 81.3 % | planted |
 | detector F1, heuristic / changepoint | 0.87–0.90 / 0.80–0.83 | 0.91 / 0.87 | emergent |
 
-\* First 10 m build, which still applied the sliver floor to past deliveries
-(#14). The real geometry and area ratios come from the same build; they are
-re-measured on the corrected rule.
+The synthetic set retains less than the real one (79.1 against 81.3 %)
+because the generator redraws every outline by 0.5 m in every year, which loses
+the strips described below. Real deliveries apparently move outlines less
+(bug 14 cost 252 real fields, not the several hundred per 6,500 it cost
+synthetically).
 
 The synthetic cadastre is calibrated to the real size distribution down to the
 0.05 ha floor, so it has the many small fields the old filter removed. That is
@@ -660,10 +673,7 @@ real result above stands or falls on the real data.
 
 - **Citation for the Sentinel-2 system MTF of 0.25 at Nyquist.** The whole of
   §2.3 rests on it.
-- **Purity sensitivity on the 10 m mask** (§2.5). The script is ready: every
-  parcel admitted, the Alpstein summering window, Cloud Score+ 0.60.
+- **Purity sensitivity on the 10 m mask** (§2.5). `drought ee sensitivity` is ready:
+  every parcel admitted, the Alpstein summering window, Cloud Score+ 0.60.
 - **Cut extraction on the 10 m mask, full season** (§5.6), and with it the
   detector re-score.
-- **Re-measure the funnel and geometry** on the real data without the 0.25 ha
-  filter (§2.1). Every number in §2.1, §2.2 and §2.4 is provisional until then.
-
