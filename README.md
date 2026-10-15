@@ -54,7 +54,11 @@ in brief:
   is modelled from the specified MTF: a detector box convolved with Gaussian
   optics. Pixel purity is the share of a cell's response that comes from
   inside a field. The threshold's cost was measured for each management
-  system.
+  system, and so was its effect on the answer. The 2026 anomaly grows steadily
+  as the threshold tightens, by 3–4 % for intensive meadows and 9–15 % for
+  extensive ones. The threshold in use, 0.90, is within 3.3 % of the strictest
+  value tested, so mixed pixels make the reported drought signal slightly
+  weaker, never stronger.
 - **Invariants caught real bugs.** The observed area at purity > 0 must exceed
   the polygon area, because the response reaches past every boundary. Seeing
   it fall below 1 exposed a mask design that zeroed the halo, and the mask was
@@ -67,7 +71,9 @@ in brief:
   precision falls to 0.64: 23 of its 34 false positives fall between DOY 220
   and 260, on the drought recovery, which the synthetic data had predicted.
   So the last-cut comparison ends at DOY 228 for every year, and is also
-  computed from the hand labels alone. A changepoint alternative scored
+  computed from the hand labels alone: the 2026 median is 12 days earlier,
+  with 15 of 22 fields stopping sooner. That is an indication, not yet
+  significant (sign test p ≈ 0.13). A changepoint alternative scored
   F1 0.805 on the same labels and was rejected. Both are kept in the code.
 - **Numbers carry their provenance, and stale files are refused.** Every data
   file has a record of the settings and mask that produced it. Loading

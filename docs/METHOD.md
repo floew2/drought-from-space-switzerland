@@ -240,13 +240,45 @@ cells are contaminated.
 ### 2.5 Is the threshold a lever on the answer?
 
 The purity threshold is applied in Earth Engine, not baked into the raster, so
-it can be swept at the cost of one extraction. On the **previous 20 m mask**,
-the 2026 NDMI anomaly moved by under 1 % of its own size across the whole range
-0.05–0.95, at two independent sites. If that holds at 10 m, the threshold
-changes how many pixels are measured but not what they say. **It has not yet
-been re-run on the 10 m mask** ([§8](#8-open-items)).
+it can be swept at the cost of one extraction (`drought ee sensitivity`, then
+`drought sensitivity plot`; run of 15 October 2026, 10 m mask). The measure is
+the mean 2026 NDMI anomaly against 2019–2025 over the site's window:
 
-That earlier sweep had a design flaw. It admitted only parcels with at least
+| site / system | anomaly at 0.00 | at 0.90 (in use) | at 0.95 | spread 0.50–0.95 | 0.90 vs 0.95 |
+|---|---|---|---|---|---|
+| Linthebene intensive | −0.117 | −0.122 | −0.122 | 3.2 % | 0.7 % |
+| Linthebene extensive | −0.096 | −0.114 | −0.118 | 14.5 % | 3.1 % |
+| Rheintal intensive | −0.085 | −0.089 | −0.090 | 3.8 % | 0.9 % |
+| Rheintal extensive | −0.077 | −0.086 | −0.088 | 8.8 % | 2.9 % |
+| Alpstein intensive | −0.098 | −0.102 | −0.103 | 4.3 % | 1.2 % |
+| Alpstein extensive | −0.093 | −0.112 | −0.116 | 14.0 % | 3.3 % |
+
+- **The sign never changes.** At every threshold, at every site, for both
+  systems, the 2026 anomaly is negative.
+- **The size does change, in one direction.** The anomaly grows steadily as the
+  threshold tightens, with no clear plateau, so there is no "safe range". The change is
+  three to four times larger for extensive meadows, whose fields are small and
+  mostly edge (§2.2). That is the expected signature of mixed pixels: cells
+  that are partly road, hedge or arable dilute the meadow's signal.
+- **So the threshold in use understates, slightly.** At 0.90 the anomaly is
+  within 0.7–3.3 % of the strictest value tested. The reported drought signal
+  is therefore, if anything, a little too weak, never inflated by contamination.
+- **One comparison is not robust: intensive against extensive at Alpstein.**
+  Below a threshold of about 0.5, intensive meadows show the larger anomaly;
+  above it, extensive ones do. At Linthebene and Rheintal, intensive meadows
+  show the larger anomaly at every threshold. No claim here compares the two
+  systems at Alpstein.
+
+What the sweep cannot separate is *why* the anomaly drifts. Two causes are
+possible. At high thresholds, fewer mixed pixels remain (contamination), but
+small fields also drop out of the sample altogether (composition). A second
+sweep restricted to parcels that keep a cell of purity ≥ 0.90
+(`gee.strict_purity: 0.9`) would split the two. It has not been run, because
+it would change the configuration hash of every other export, and the
+practical conclusion above does not depend on the answer.
+
+On the previous 20 m mask, the anomaly moved by under 1 % across the whole
+range. That sweep had a design flaw. It admitted only parcels with at least
 one cell of purity 0.90, so composition stayed fixed while the threshold
 moved. That isolates contamination cleanly, but only for large, compact fields,
 which are the fields contamination barely touches. The re-run admits every
@@ -533,7 +565,7 @@ results below are on the previous mask:
 
 - **Last cut about 20 days earlier in 2026** on 12 paired fields, 10 of the 12
   stopping sooner. This comes from hand labels, so it depends on no algorithm;
-  the detector corroborates it.
+  the detector corroborates it. *Superseded by the label-only result below.*
 - **No difference in cut count** once observation density is matched.
 - **Retracted:** a "share of cuts after DOY 190" finding. Baseline years ran to
   DOY 290 while 2026 stopped at 228, so every September cut counted as "late"
@@ -587,6 +619,21 @@ re-score (`drought cuts errors --labelled`). The 34 false positives of 2026, by 
   (`drought cuts labels`, `metrics.labels_last_cut_paired`), with the detector
   only as corroboration. The labels are read off the same curves, but a human
   labeller sees that a recovery is not a mowing, and the frozen rules do not.
+
+**The last-cut shift, from the hand labels alone** (`drought cuts labels`,
+every year ending at DOY 228, 15 October 2026). 22 Linthebene fields are
+labelled in 2026 and in at least one earlier year:
+
+- mean last cut DOY 201.5 in the earlier years, DOY 189.7 in 2026;
+- median shift **−11.9 days**; 15 of the 22 fields stopped sooner.
+
+This is weaker evidence than the earlier "20 days" suggested. Most fields have
+only one baseline year (median 1), so each field's baseline is a single
+season, not an average. A sign test on 15 of 22 gives p ≈ 0.13 (two-sided),
+not significant on its own. The labelled fields were chosen for labelling, not
+sampled at random. The direction agrees with the drought, and the size is
+plausible, but on this sample it is an indication, not a finding. Labelling
+more baseline years for the same 22 fields would strengthen it most cheaply.
 
 ### 5.7 Elevation
 
@@ -740,7 +787,8 @@ real result above stands or falls on the real data.
 
 - **Citation for the Sentinel-2 system MTF of 0.25 at Nyquist.** The whole of
   §2.3 rests on it.
-- **Purity sensitivity on the 10 m mask** (§2.5). `drought ee sensitivity` is ready:
-  every parcel admitted, the Alpstein summering window, Cloud Score+ 0.60.
-- **Cut extraction on the 10 m mask, full season** (§5.6), and with it the
-  detector re-score.
+- **Cut extraction on the 10 m mask, full season** (§5.6). The labelled
+  field-years are done and the detector re-scored; the full per-site sample
+  exceeds the free Earth Engine quota.
+- **More baseline labels for the 22 paired Linthebene fields** (§5.6): the
+  cheapest way to firm up the last-cut shift.
