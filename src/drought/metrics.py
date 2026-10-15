@@ -170,3 +170,35 @@ def labels_paired(labels: dict, cfg=None, end=None) -> pd.DataFrame:
     piv = t.pivot_table(index="parcel_id", columns="year",
                         values=["n", "first", "last"]).dropna()
     return piv
+
+
+def labels_last_cut_paired(labels: dict, end: int, cfg=None) -> pd.DataFrame:
+    """Last HAND-LABELLED cut up to `end`, current year against each parcel's own
+    baseline mean. No detector is involved, so its drought-year false positives
+    (METHOD §5.6) cannot touch this number.
+
+    Args:
+        labels: {"<parcel_id>|<year>": [doy, ...]}.
+        end: Comparison end (DOY), the same for every year.
+
+    Returns:
+        DataFrame per parcel: baseline, current, shift_days, n_baseline_years.
+    """
+    C = cfg or CFG
+    cur = int(C.project.current_year)
+    lo = C.detect.season[0]
+    last = {}
+    for key, v in labels.items():
+        pid, yr = key.rsplit("|", 1)
+        v = [d for d in v if lo <= d <= end]
+        if v:
+            last.setdefault(pid, {})[int(yr)] = max(v)
+    rows = []
+    for pid, by_year in last.items():
+        base = [d for y, d in by_year.items() if y != cur]
+        if cur in by_year and base:
+            rows.append({"parcel_id": pid, "baseline": float(np.mean(base)),
+                         "current": float(by_year[cur]), "n_baseline_years": len(base)})
+    out = pd.DataFrame(rows, columns=["parcel_id", "baseline", "current", "n_baseline_years"])
+    out["shift_days"] = out.current - out.baseline
+    return out

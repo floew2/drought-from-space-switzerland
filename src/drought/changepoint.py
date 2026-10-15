@@ -6,7 +6,8 @@ heuristic rule becomes a consequence rather than a rule — a slow drought
 decline is fitted BY a sloping segment, so no break is placed there.
 
 Scored on the same 65 hand-labelled parcel-years: best F1 0.871 against the
-heuristic's 0.911, over-segmenting (32 false positives against 12). NOT
+heuristic's 0.911, over-segmenting (32 false positives against 12); on the
+10 m mask and 136 parcel-years, 0.805 against 0.868. NOT
 ADOPTED. Kept as the record of a measured negative result, which is worth more
 than an untested assumption in either direction.
 """

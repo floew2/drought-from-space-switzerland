@@ -93,6 +93,6 @@ PRECIP = {
 }
 
 # --- cut detector (provenance: detect) ----------------------------------------
-DETECTOR = {"labelled_parcel_years": 65, "precision": 0.902, "recall": 0.922,
-            "f1": 0.912, "recall_per_year": (0.812, 1.000),
-            "changepoint_f1": 0.871}
+DETECTOR = {"labelled_parcel_years": 136, "precision": 0.841, "recall": 0.898,
+            "f1": 0.868, "f1_without_current": 0.897, "precision_current": 0.642,
+            "changepoint_f1": 0.805}

@@ -452,21 +452,35 @@ condition series are not built from exactly the same observations.
   positive, not two hits.
 - **Train, then freeze.** The rules were tuned on 42 labelled field-years and
   then frozen. Validated on all 65, F1 moved from 0.911 to 0.912, so it did not
-  overfit. Re-tuning on the full set would give up that out-of-sample property,
-  so the configuration is frozen in `config.yaml`. `evaluate.assert_wired()`
+  overfit. The configuration has not changed since, so the 78 field-years
+  labelled later were never seen during tuning; they are a genuine hold-out
+  (scored here together with the first 65, not separately). Re-tuning on the
+  full set would give up that out-of-sample property, so the configuration is
+  frozen in `config.yaml`. `evaluate.assert_wired()`
   refuses to run a comparison if a configuration parameter is not actually read
   by the detector. That exact situation once produced a confident and wrong "this
   rule does not help".
 - **What the headline needs is stability, not F1.** The claim compares *years*,
-  so the threat is an error rate that differs by year. Per-year recall was
-  0.812–1.000, with 2026 inside that range.
+  so the threat is an error rate that differs by year. That threat is real:
+  recall holds in 2026, precision does not (table below).
 - **Free ground truth.** Extensive meadows in the valley and hill zones may not
   legally be cut before 15 June, so any earlier detection there is a known
   error. A regulation serves as ground truth.
 
-Precision 0.902, recall 0.922, **F1 0.912**. These scores come from extractions
-on the **previous 20 m mask**; the re-run on the 10 m mask is pending
-([§5.6](#56-status-and-what-the-full-season-re-run-has-to-watch)).
+Re-scored on the 10 m mask, full season (DOY 60–305), over the 136 of 143
+labelled field-years that could be scored (382 cuts), using
+`drought cuts score|errors --labelled`:
+
+| | precision | recall | F1 |
+|---|---|---|---|
+| all years | 0.841 | 0.898 | **0.868** |
+| without 2026 | 0.901 | 0.892 | 0.897 |
+| 2026 only (61 hits, 34 false positives, 5 misses) | 0.642 | 0.924 | 0.758 |
+
+The drop is a precision drop in one year. §5.6 shows where it comes from. Of
+the 39 misses, 17 are the last cut of their season. (The earlier
+F1 0.912 was on 65 labels, the previous 20 m mask, and extractions ending in
+mid-August 2026.)
 
 No per-field cut data ships with this repository, neither real nor anonymised.
 The scores above are therefore stated results. Anyone can run the detector and
@@ -482,14 +496,15 @@ agreement with an expert reading of the signal, not a farm diary.
 A penalised piecewise-linear changepoint fit (`changepoint.py`) was built as the
 principled alternative and scored on the same labels. It reached **F1 0.871**,
 against the heuristic's 0.911 at the time, mainly by over-segmenting: 32 false
-positives against 12. It stays in the code as the record of a negative result.
+positives against 12. On the re-scored 136 field-years it reached F1 0.805,
+against 0.868. It stays in the code as the record of a negative result.
 Two individual rules were also tested and dropped or kept on evidence, not
 taste. A minimum-concentration rule *hurt* (F1 0.872 with it, 0.894 without),
 because it rejects real cuts whose drop spans two observations. The follow-up
 rule stays, because removing it costs three false positives.
 
-There is no learned model here, deliberately. The data are 65 labelled
-field-years, and the decision being validated is a comparison between years. A
+There is no learned model here, deliberately. The data are 143 labelled
+field-years from one site, and the decision being validated is a comparison between years. A
 transparent rule set that was frozen, validated per year, and beat its
 principled alternative is the more defensible tool at that sample size. The
 obvious next experiment, if wanted, is a small classifier on windowed features
@@ -510,10 +525,11 @@ comparison is the result.
   there, not harder. Each field is compared with its own baseline mean, which
   removes site, farm and management style in one step.
 
-### 5.6 Status, and what the full-season re-run has to watch
+### 5.6 The drought recovery fools the detector, as predicted
 
-The cut extractions on disk predate the mask rebuild, and are being re-run now
-that the season has closed. The earlier results, all on the previous mask:
+The full per-site cut extraction on the 10 m mask exceeds the free Earth Engine
+quota, so only the labelled field-years were re-extracted (§5.3). The earlier
+results below are on the previous mask:
 
 - **Last cut about 20 days earlier in 2026** on 12 paired fields, 10 of the 12
   stopping sooner. This comes from hand labels, so it depends on no algorithm;
@@ -554,6 +570,23 @@ full-season last-cut number is reported:
   ending before the recovery (mid-August, as the earlier result used);
 - count the 2026 detections dated in the trough (about DOY 220–245) and inspect
   them in the labelling widget.
+
+**The real labels confirm it.** The plan was written down before the real
+re-score (`drought cuts errors --labelled`). The 34 false positives of 2026, by date:
+
+| DOY | 180–200 | 200–220 | 220–240 | 240–260 | 260–280 |
+|---|---|---|---|---|---|
+| 2026 false positives | 2 | 5 | **18** | 5 | 4 |
+
+23 of 34 fall between DOY 220 and 260, the trough and the recovery. Without
+2026, precision is 0.901; with it, 0.841. So:
+
+- the detector's last cut in 2026 is not used past DOY 228. The fixed
+  end date stays at 228 for every year;
+- the last-cut shift is computed from the hand labels alone
+  (`drought cuts labels`, `metrics.labels_last_cut_paired`), with the detector
+  only as corroboration. The labels are read off the same curves, but a human
+  labeller sees that a recovery is not a mowing, and the frozen rules do not.
 
 ### 5.7 Elevation
 

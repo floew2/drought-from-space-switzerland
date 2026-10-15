@@ -224,3 +224,14 @@ def test_area_ratio_reference_is_clipped_to_the_raster():
 
     unclipped = sum(g.area for g in geoms) / 1e4             # the old denominator
     assert observed / unclipped < 1.0
+
+
+def test_label_last_cut_ignores_cuts_after_end_and_unpaired_parcels():
+    from drought import metrics
+    lab = {"a|2026": [150, 200, 240], "a|2024": [160, 220], "a|2025": [170, 210],
+           "b|2026": [180]}                       # b has no baseline year
+    t = metrics.labels_last_cut_paired(lab, end=228)
+    assert list(t.parcel_id) == ["a"]
+    assert t.current.iloc[0] == 200                 # 240 is past the end
+    assert t.baseline.iloc[0] == 215
+    assert t.shift_days.iloc[0] == -15

@@ -1,7 +1,9 @@
 """Cut detection — the heuristic.
 
 FROZEN configuration. Tuned on 42 hand-labelled parcel-years, then validated on
-all 65: F1 0.911 -> 0.912. Re-tuning on the full label set would forfeit that
+all 65: F1 0.911 -> 0.912. On the 10 m mask and 136 labelled parcel-years:
+F1 0.868, 0.897 without 2026, where the regrowth rule fires on the drought
+recovery (METHOD §5.6). Re-tuning on the full label set would forfeit the
 out-of-sample property, so don't, without a reason.
 
 The rules and why each exists, in the order they were forced on us:

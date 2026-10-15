@@ -61,10 +61,14 @@ in brief:
   rebuilt polygon-first. Matching parcels by centroid kept 43 %; matching by
   area overlap kept 86 % (81 % now that fields down to 0.05 ha are included).
 - **The cut detector uses machine-learning methodology without a learned
-  model.** It was tuned on 42 hand-labelled parcel-years and then frozen.
-  Validated on all 65, F1 went from 0.911 to 0.912, and recall per year was
-  0.81–1.00. A changepoint alternative was implemented, scored on the same
-  labels, and rejected at F1 0.871. Both are kept in the code.
+  model.** It was tuned on 42 hand-labelled parcel-years and then frozen; the
+  label set has since grown to 143 without the configuration changing. On the
+  136 scorable parcel-years, F1 is 0.868, and 0.897 without 2026. In 2026,
+  precision falls to 0.64: 23 of its 34 false positives fall between DOY 220
+  and 260, on the drought recovery, which the synthetic data had predicted.
+  So the last-cut comparison ends at DOY 228 for every year, and is also
+  computed from the hand labels alone. A changepoint alternative scored
+  F1 0.805 on the same labels and was rejected. Both are kept in the code.
 - **Numbers carry their provenance, and stale files are refused.** Every data
   file has a record of the settings and mask that produced it. Loading
   refuses a mismatch and names the field, which turns the project's worst
@@ -84,6 +88,8 @@ Everything runs through one command, `drought` (see `drought --help`):
 | `drought demo` | Mask build, area accounting, trajectories, precipitation, cut detection and scoring, all on synthetic data. Exits non-zero if a calibrated value misses its target or a physical invariant fails. `make demo` runs the same. |
 | `drought --synthetic mask check` | Area cost of each purity threshold, and the PSF-model comparison. |
 | `drought --synthetic cuts score --site linthebene` | The frozen detector and the changepoint alternative, scored against the labels. |
+| `drought --synthetic cuts errors --site linthebene` | Where the detector errs: current year against the others, false positives by date. |
+| `drought --synthetic cuts labels --site linthebene` | Last-cut shift from the hand labels alone, no detector (default end DOY 228). |
 | `drought results show` | Every headline number from `results.json`, refused if any of it was computed under other settings or another mask. |
 | `drought ee trajectory` / `sensitivity` / `cuts` | Runs the Earth Engine exports from Python: checks the mask asset is the local mask, waits, downloads, registers. |
 | `drought gee render` | Writes `config.yaml`'s shared settings into the two interactive Code Editor scripts; CI fails if they drift. |

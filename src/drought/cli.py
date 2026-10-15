@@ -188,6 +188,21 @@ def _cuts_errors(a) -> None:
               f"{int(miss.is_last.sum())}")
 
 
+def _cuts_labels(a) -> None:
+    from . import labels, metrics
+    lab = labels.load_labels(a.site)
+    t = metrics.labels_last_cut_paired(lab, end=a.end)
+    if t.empty:
+        sys.exit("no parcel labelled in the current year and a baseline year")
+    print(f"hand labels only, every year cut at DOY {a.end}:")
+    print(f"  {len(t)} parcels labelled in 2026 and >= 1 baseline year "
+          f"(median {t.n_baseline_years.median():.0f} baseline years each)")
+    print(f"  baseline mean last cut  DOY {t.baseline.mean():.1f}")
+    print(f"  2026 mean last cut      DOY {t.current.mean():.1f}")
+    print(f"  median shift            {t.shift_days.median():+.1f} days")
+    print(f"  parcels stopping sooner {int((t.shift_days < 0).sum())} of {len(t)}")
+
+
 def _gallery(a) -> None:
     from . import gallery
     gallery.build()
@@ -442,6 +457,11 @@ def build_parser() -> argparse.ArgumentParser:
         c.add_argument("--labelled", action="store_true",
                        help="read data/gee/<site>/labelled/ (from `ee cuts --labelled-only`)")
         c.set_defaults(func=func)
+
+    c = cu.add_parser("labels", help="last-cut shift from the hand labels alone (no detector)")
+    c.add_argument("--site", required=True)
+    c.add_argument("--end", type=int, default=228, help="comparison end DOY (default 228)")
+    c.set_defaults(func=_cuts_labels)
 
     sub.add_parser("gallery", help="refresh docs/figures/{model,demo}").set_defaults(func=_gallery)
 
