@@ -21,8 +21,6 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Lint
         run: ruff check src tests
-      - name: GEE scripts match config.yaml
-        run: drought gee render --check
       - name: Test
         run: pytest
       # The demo checks itself: calibrated targets, the PSF area invariant and

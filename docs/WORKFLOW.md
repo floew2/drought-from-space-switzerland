@@ -158,16 +158,11 @@ The widget hides the detector's cuts while you label, then reveals them.
   setting plus the mask.
 - **Stamped mask asset.** See step 2.
 
-The two interactive Code Editor scripts in `gee/` (a grassland map and
-Sentinel-2 hotspots) are for looking, not for data. `drought gee render`
-writes `config.yaml`'s settings into them, and CI fails if they drift.
-
 ## Data sources
 
 Copernicus Sentinel-2 MSI Level-2A (harmonized): contains modified Copernicus
 Sentinel data 2019–2026, processed in Google Earth Engine. Cloud Score+
 (Pasquarella et al. 2023, CVPRW, doi:10.1109/CVPRW59228.2023.00206). Elevation:
-CGIAR-CSI SRTM 90 m v4. Land cover for the interactive maps: ESA WorldCover
-v200, Google Dynamic World V1. Parcels: Nutzungsflächen, Kanton St. Gallen,
+CGIAR-CSI SRTM 90 m v4. Parcels: Nutzungsflächen, Kanton St. Gallen,
 2017–2025 (not redistributed). Station data: MeteoSchweiz Open Data,
 SwissMetNet St. Gallen, daily values, CC BY 4.0, *Quelle: MeteoSchweiz*.

@@ -12,7 +12,6 @@
     drought notebook
     drought ee check|stamp-mask|trajectory|sensitivity|cuts|run-all
     drought sensitivity plot [--site S] [--regime R]
-    drought gee render [--out DIR] [--check]
     drought provenance register|verify|show FILES [--kind KIND]
     drought results show
     drought config show [KEY]
@@ -241,28 +240,6 @@ def _run_all(a) -> None:
         print(f"\nskipped for missing input: {', '.join(failed)}")
 
 
-def _gee_render(a) -> None:
-    from . import gee
-    if a.check:
-        bad = gee.check()
-        if bad:
-            sys.exit("gee scripts differ from config.yaml; run `drought gee render`: "
-                     + ", ".join(p.name for p in bad))
-        print("gee scripts match config.yaml")
-        return
-    try:
-        written = gee.render(out=a.out)
-    except ValueError as exc:
-        sys.exit(f"drought: {exc}")
-    for p in written:
-        print(f"  wrote {p}")
-    if not written:
-        print("  nothing to change")
-    if a.out:
-        print(f"  CONFIG_HASH {gee.expected_hash()}: exports from these copies carry it "
-              "in their file names")
-
-
 def _sensitivity_plot(a) -> None:
     from . import figures, results
     from .config import CFG
@@ -469,18 +446,11 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--end", type=int, default=228, help="comparison end DOY (default 228)")
     c.set_defaults(func=_cuts_labels)
 
-    sub.add_parser("gallery", help="refresh docs/figures/{model,demo}").set_defaults(func=_gallery)
+    sub.add_parser("gallery", help="refresh docs/figures/model").set_defaults(func=_gallery)
     nb = sub.add_parser("notebook", help="run notebooks/walkthrough.ipynb on synthetic data")
     nb.add_argument("--check", action="store_true", help="run a copy; fail on any error (CI)")
     nb.set_defaults(func=_notebook)
 
-    g = sub.add_parser("gee", help="Earth Engine scripts").add_subparsers(
-        dest="action", required=True, metavar="ACTION")
-    c = g.add_parser("render", help="write config.yaml's settings into the scripts in gee/")
-    c.add_argument("--out", help="write paste-ready copies here instead (needs gee.project)")
-    c.add_argument("--check", action="store_true",
-                   help="fail if gee/ differs from a fresh render (CI)")
-    c.set_defaults(func=_gee_render)
 
     e = sub.add_parser("ee", help="run the Earth Engine exports from Python").add_subparsers(
         dest="action", required=True, metavar="ACTION")

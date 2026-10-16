@@ -1,15 +1,13 @@
-"""Build the committed figures for docs/gallery.md.
+"""Render the model figure for docs/gallery.md.
 
-    python -m drought.gallery        # after `make demo`
+    python -m drought.gallery
 
-Two sources, kept apart on disk and in the gallery:
-
-docs/figures/model/   figures that use no data at all (the sensor response),
-                      rendered here without the synthetic stamp
-docs/figures/demo/    the demo's synthetic figures, downscaled; they keep the
-                      SYNTHETIC stamp they were saved with
-docs/figures/real/    results from the real data — copied in by hand from a
+docs/figures/model/   figures that use no data at all (the sensor response)
+docs/figures/real/    results from the real data, copied in by hand from a
                       real run, never generated here (see the README there)
+
+Synthetic figures are never committed: `make demo` writes them to
+output/synthetic/figures/, for anyone who wants to see what each step does.
 """
 
 from __future__ import annotations
@@ -19,16 +17,6 @@ from pathlib import Path
 from .config import ROOT
 
 DOCS = ROOT / "docs" / "figures"
-DEMO_PICKS = [
-    "linthebene/vi_trajectory_NDMI_intensive.png",
-    "rheintal/vi_trajectory_NDMI_extensive.png",
-    "station/precip_syn_2026.png",
-    "mask/parcel_size.png",
-    "mask/area_check_all.png",
-    "mask/purity_explainer_linthebene_intensive.png",
-    "mask/purity_map_linthebene_intensive.png",
-    "linthebene/last_cut_intensive.png",
-]
 MAX_PX = 1200
 
 
@@ -43,12 +31,11 @@ def _shrink(src: Path, dst: Path) -> None:
 
 
 def build() -> list[Path]:
-    """Render the model figure and copy the demo picks. Returns written paths."""
+    """Render the model figure. Returns the written paths."""
     import matplotlib
 
     matplotlib.use("Agg")
     from . import mask_figures
-    from .config import CFG
 
     out = []
     model = DOCS / "model"
@@ -59,14 +46,6 @@ def build() -> list[Path]:
     tmp.unlink()
     out.append(model / "psf.png")
 
-    demo_root = ROOT / CFG.synthetic.paths.figures
-    missing = [p for p in DEMO_PICKS if not (demo_root / p).exists()]
-    if missing:
-        raise SystemExit(f"run `make demo` first; missing: {missing}")
-    for p in DEMO_PICKS:
-        dst = DOCS / "demo" / p.replace("/", "_")
-        _shrink(demo_root / p, dst)
-        out.append(dst)
     for p in out:
         print(f"  {p.relative_to(ROOT)}  ({p.stat().st_size / 1e3:.0f} KB)")
     return out

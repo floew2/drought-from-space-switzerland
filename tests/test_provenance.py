@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drought import config, gee, provenance
+from drought import config, provenance
 from drought.provenance import ProvenanceError, record, register, verify, write_sidecar
 
 
@@ -113,36 +113,8 @@ def test_require_false_warns_instead(tmp_path, fake_mask, monkeypatch):
 
 def test_export_named_with_another_config_hash_is_refused(tmp_path, fake_mask):
     f = _trajectory_csv(tmp_path / "grassland_trajectory_multi_p90_cfg000000000000.csv")
-    with pytest.raises(ProvenanceError, match="Re-render"):
+    with pytest.raises(ProvenanceError, match="Re-run the export"):
         register(f, "trajectory")
-
-
-# --------------------------------------------------------------------------- #
-# The Earth Engine scripts
-# --------------------------------------------------------------------------- #
-def test_committed_gee_scripts_match_the_renderer():
-    """CI runs this: a hand edit to a generated value, or a config change not
-    rendered, fails the build."""
-    assert gee.check() == []
-
-
-def test_committed_scripts_carry_no_project_id():
-    """Every Earth Engine project named in a committed script is the placeholder,
-    and no asset path is written out by hand."""
-    import re
-
-    for script in gee.SCRIPTS:
-        text = (gee.GEE_DIR / script).read_text()
-        assert set(re.findall(r"var PROJECT = '([^']*)'", text.replace('"', "'"))) <= {
-            gee.PLACEHOLDER}
-        assert re.findall(r"projects/[A-Za-z0-9_-]+/assets", text) == []
-        assert gee.PLACEHOLDER in text or "ASSETS" not in gee.SCRIPTS[script]
-
-
-def test_paste_ready_render_needs_a_project(tmp_path, monkeypatch):
-    monkeypatch.setattr(config.CFG.gee, "project", None)   # config.local.yaml may set it
-    with pytest.raises(ValueError, match="gee.project"):
-        gee.render(out=tmp_path)
 
 
 # --------------------------------------------------------------------------- #

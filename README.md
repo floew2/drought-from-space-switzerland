@@ -38,33 +38,20 @@ browning is field by field, not a colour change of the image.*
 The comparison is 2026 against the 2019–2025 median, May to September
 (DOY 121–273), on the days every year observed.
 
-<table>
-<tr>
-<td width="50%"><img src="docs/figures/real/vi_trajectory_NDMI_intensive_linthebene.png" alt="Linthebene, intensive meadows: 2026 NDMI against the 2019–2025 envelope"></td>
-<td width="50%"><img src="docs/figures/real/vi_trajectory_NDMI_extensive_rheintal.png" alt="Rheintal, extensive meadows: 2026 NDMI against the 2019–2025 envelope"></td>
-</tr>
-<tr>
-<td><b>Linthebene, intensive meadows.</b> Site-mean NDMI, 2026 (red) against the 2019–2025 envelope.</td>
-<td><b>Rheintal, extensive meadows.</b> A different site and management system: the same summer collapse, rank 1 of 8.</td>
-</tr>
-<tr>
-<td><img src="docs/figures/real/mowing_one_field_2025_2026.png" alt="One meadow, 2025 against 2026: five cuts, then three and no regrowth"></td>
-<td><img src="docs/figures/real/precip_stg_2026.png" alt="Cumulative precipitation and P − ET0 at St. Gallen, 2026 against 1991–2020"></td>
-</tr>
-<tr>
-<td><b>You can watch the mowing stop.</b> One meadow, two summers. Each sawtooth is a harvest. In 2026, after the July cut, the canopy no longer regrows.</td>
-<td><b>Station St. Gallen.</b> Cumulative precipitation and P − ET0, 2026 against 1991–2020: the driest of 31 years.</td>
-</tr>
-</table>
+![Precipitation at St. Gallen, grassland NDMI at Linthebene, and one meadow's mowing in 2025 against 2026](docs/figures/real/overview.png)
 
-*Real data, runs of 14 October 2026 (the single field: presentation, August 2026).*
+*Top left: cumulative precipitation at St. Gallen, 2026 against 1991–2020.
+Top right: site-mean NDMI of intensive meadows at Linthebene, 2026 against
+2019–2025. Bottom: one meadow, two summers. Each sawtooth is a harvest; in 2026
+the canopy stops regrowing after the July cut. Real data, runs of
+14 October 2026 (the single meadow: presentation, August 2026).*
 
 ## Read it, or run it
 
 | if you want to… | go to |
 |---|---|
 | read the whole story as a website | **[floew2.github.io/drought-from-space-switzerland](https://floew2.github.io/drought-from-space-switzerland/)** |
-| see the whole pipeline, with figures, without installing anything | **[notebooks/walkthrough.ipynb](notebooks/walkthrough.ipynb)** (rendered on GitHub) |
+| see the whole pipeline step by step, without installing anything | **[notebooks/walkthrough.ipynb](notebooks/walkthrough.ipynb)** (rendered on GitHub) |
 | understand why each step is built the way it is | **[docs/METHOD.md](docs/METHOD.md)** |
 | look at the figures | [docs/gallery.md](docs/gallery.md) |
 | run it yourself, on synthetic data | the four lines below |
@@ -163,11 +150,10 @@ config.yaml                every setting, in one place
 src/drought/               the analysis: mask, trajectory, precip, detect, evaluate, provenance
 src/drought/engine/        the Earth Engine exports, run from Python
 src/drought/synthetic/     calibrated stand-ins for every input; targets.py lists the real numbers
-notebooks/walkthrough.ipynb  the pipeline step by step (synthetic run, outputs included)
+notebooks/walkthrough.ipynb  the pipeline step by step (synthetic run; numbers and tables included)
 docs/METHOD.md             how and why
 docs/WORKFLOW.md           running on real data
-docs/gallery.md            figures: real results, the sensor model, the synthetic demo
-gee/                       two interactive Earth Engine scripts (map, hotspots), for looking
+docs/gallery.md            figures: real results and the sensor model
 site/                      website config (Jupyter Book -> GitHub Pages)
 tests/                     pytest; CI runs lint, tests, the demo and the notebook
 ```

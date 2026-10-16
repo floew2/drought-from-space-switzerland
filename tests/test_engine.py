@@ -145,11 +145,9 @@ def test_fetch_refuses_an_export_from_other_settings(fake_mask, monkeypatch, tmp
 # --------------------------------------------------------------------------- #
 # One implementation, and machine settings kept out of the method
 # --------------------------------------------------------------------------- #
-def test_ported_scripts_are_gone():
-    for js in ("gee_grassland_trajectory.js", "gee_purity_sensitivity.js",
-               "gee_cuts_extract.js"):
-        assert not (gee.GEE_DIR / js).exists()
-        assert js not in gee.SCRIPTS
+def test_no_earth_engine_scripts_remain():
+    from drought.config import ROOT
+    assert not (ROOT / "gee").exists() or not list((ROOT / "gee").glob("*.js"))
 
 
 def test_local_config_sets_only_where_not_how(tmp_path):

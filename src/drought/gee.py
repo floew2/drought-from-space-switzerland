@@ -1,23 +1,14 @@
-"""Render Earth Engine settings from config.yaml into the interactive scripts.
+"""The CONFIG_HASH: one hash of every Earth Engine setting plus the local mask.
 
-The three EXPORTS (trajectory, purity sensitivity, cut series) run from Python,
-in `drought.engine`; they read config.yaml directly. What remains in gee/ are
-two interactive Code Editor scripts, a map and a hotspot view, that are run by
-hand to look at things. Their shared settings (the purity threshold, mask band
-order, land-use codes, years, Cloud Score+ threshold) are written into a marked
-block at the top of each, so they cannot drift from config.yaml. CI runs
-`drought gee render --check` and fails if a committed script differs.
-
-gee/*.js            committed. The Earth Engine project is a placeholder.
-<out>/*.js          for pasting into the Code Editor: `drought --set
-                    gee.project=<project> gee render --out output/gee`.
-
-The CONFIG_HASH is a hash of every Earth Engine setting (including those the
-Python exports use) plus the local mask's fingerprint. Exports put it in their
-file names, so registering a download can tell whether it ran under the
+The Earth Engine exports (trajectory, purity sensitivity, cut series) run from
+Python, in `drought.engine`. Each puts this hash in its file names
+(`..._cfg<hash>`), so registering a download can tell whether it ran under the
 current settings and mask. Every hash produced is kept in
 `output/gee/manifest.json` with its settings, so a mismatch can name what
 changed.
+
+The hashed values are kept exactly as they were when interactive Code Editor
+scripts still lived in gee/, so exports registered then keep their hash.
 """
 
 from __future__ import annotations
@@ -27,44 +18,16 @@ from pathlib import Path
 
 from .config import CFG, ROOT
 
-__all__ = ["SCRIPTS", "check", "expected_hash", "manifest_settings", "render",
-           "render_settings"]
+__all__ = ["expected_hash", "manifest_settings", "render_settings"]
 
-GEE_DIR = ROOT / "gee"
-BEGIN = "// >>> drought gee render"
-END = "// <<< end of generated block"
-PLACEHOLDER = "YOUR_EE_PROJECT"
-
-# Which generated variables each script receives.
-SCRIPTS = {
-    "gee_grassland_map.js": ("PROJECT", "ASSETS", "CONFIG_HASH", "PURITY_MIN",
-                             "CLEAR_THRESHOLD", "MASK_BANDS", "MOWN_CODES", "GRAZED_CODES",
-                             "YEAR_DRY", "BASELINE_YEARS"),
-    "gee_s2_hotspots.js": ("CLEAR_THRESHOLD", "YEAR_DRY", "BASELINE_YEARS"),
-}
-# gee.clear_threshold key of each script.
-CLEAR_KEY = {"gee_grassland_map.js": "map", "gee_s2_hotspots.js": "hotspots"}
 # Settings of the Python exports that enter the CONFIG_HASH.
 ENGINE_KEYS = ("gee.clear_threshold", "gee.strict_purity", "gee.parcels_year",
                "gee.trajectory", "gee.sensitivity", "gee.cuts")
 
-COMMENTS = {
-    "PROJECT": "Earth Engine project with the assets",
-    "CONFIG_HASH": "settings + mask this copy was rendered with; goes into export names",
-    "PURITY_MIN": "mask.purity_min",
-    "STRICT_PURITY": "gee.strict_purity: parcels with a cell this pure enter the test",
-    "CLEAR_THRESHOLD": "Cloud Score+ cs_cdf, gee.clear_threshold",
-    "MASK_BANDS": "band order of the mask raster, as written by build_mask()",
-    "MOWN_CODES": "landuse.mown", "GRAZED_CODES": "landuse.grazed",
-    "CODES": "landuse", "REGIMES": "analysis.regimes",
-    "YEARS": "project.baseline_years + current_year",
-    "YEAR_DRY": "project.current_year", "YEAR_CUR": "project.current_year",
-    "BASELINE_YEARS": "project.baseline_years",
-}
 
 
 def _shared() -> dict:
-    """Generated values that do not depend on the script."""
+    """Method settings shared by every export."""
     from .mask.settings import GROUPS
 
     lu = CFG.landuse
@@ -86,7 +49,7 @@ def _shared() -> dict:
 
 
 def render_settings(with_mask: bool = True) -> dict:
-    """Every rendered value across all scripts, plus the mask fingerprint.
+    """Every hashed setting, plus the mask fingerprint.
 
     This is what CONFIG_HASH hashes. Paths and the project name are excluded:
     they say where the assets live, not what the method is.
@@ -106,93 +69,6 @@ def expected_hash(with_mask: bool = True) -> str:
     """CONFIG_HASH for the current settings and mask."""
     from .provenance import settings_hash
     return settings_hash(render_settings(with_mask))
-
-
-def _values(script: str, project: str | None, config_hash: str) -> dict:
-    v = _shared()
-    v["PROJECT"] = project or PLACEHOLDER
-    v["CONFIG_HASH"] = config_hash
-    v["CLEAR_THRESHOLD"] = getattr(CFG.gee.clear_threshold, CLEAR_KEY[script])
-    return {k: v[k] for k in SCRIPTS[script] if k != "ASSETS"}
-
-
-def block(script: str, project: str | None = None, config_hash: str = "") -> str:
-    """The generated block for one script."""
-    lines = [f"{BEGIN}: generated from config.yaml. Do not edit by hand —",
-             "// change config.yaml and run `drought gee render`.",
-             "// Paste-ready copy: drought --set gee.project=<project> gee render --out output/gee"]
-    for name, value in _values(script, project, config_hash).items():
-        js = json.dumps(value)
-        if name in ("CODES",):
-            js = "{\n" + ",\n".join(f"  {k}: {json.dumps(v)}" for k, v in value.items()) + "\n}"
-        lines.append(f"var {name} = {js};" + (f"   // {COMMENTS[name]}" if name in COMMENTS
-                                               and "\n" not in js else ""))
-        if name == "PROJECT" and "ASSETS" in SCRIPTS[script]:
-            lines.append("var ASSETS = 'projects/' + PROJECT + '/assets/';")
-            lines.append(f"var MASK_ASSET = ASSETS + {json.dumps(CFG.gee.assets.mask)};"
-                         "   // uploaded from build_mask()'s GeoTIFF")
-            lines.append(f"var PARCEL_PREFIX = ASSETS + {json.dumps(CFG.gee.assets.parcels)};"
-                         "   // + year")
-    lines.append(END)
-    return "\n".join(lines)
-
-
-def apply(text: str, blk: str) -> str:
-    """Put the block into a script: replace an existing one, or insert it
-    after the header comment."""
-    if BEGIN in text:
-        a = text.index(BEGIN)
-        b = text.index(END, a) + len(END)
-        return text[:a] + blk + text[b:]
-    lines = text.split("\n")
-    i = next(k for k, ln in enumerate(lines) if ln.strip() and not ln.lstrip().startswith("//"))
-    return "\n".join(lines[:i] + [blk, ""] + lines[i:])
-
-
-def render(out: str | Path | None = None, check_only: bool = False) -> list[Path]:
-    """Render every script.
-
-    Args:
-        out: Write paste-ready copies here, with the configured project and
-            the local mask's fingerprint. None updates the committed templates
-            in gee/ (placeholder project, no mask).
-        check_only: Compare the templates in gee/ with a fresh render and
-            write nothing.
-
-    Returns:
-        Paths written, or (with check_only) paths that differ.
-
-    Raises:
-        ValueError: If paste-ready copies are requested without a project.
-    """
-    template = out is None
-    project = None if template else CFG.gee.project
-    if not template and not project:
-        raise ValueError("set the project: drought --set gee.project=<project> gee render "
-                         "--out output/gee")
-    h = expected_hash(with_mask=not template)
-    dest = GEE_DIR if template else Path(out)
-    dest.mkdir(parents=True, exist_ok=True)
-    changed = []
-    for script in SCRIPTS:
-        src = (GEE_DIR / script).read_text()
-        new = apply(src, block(script, project, h))
-        target = dest / script
-        if check_only:
-            if new != src:
-                changed.append(target)
-            continue
-        if not target.exists() or target.read_text() != new:
-            target.write_text(new)
-            changed.append(target)
-    if not check_only and not template:
-        _remember(dest, h)
-    return changed
-
-
-def check() -> list[Path]:
-    """Templates in gee/ that differ from a fresh render (CI: must be empty)."""
-    return render(check_only=True)
 
 
 def _manifest_path(dest: Path) -> Path:

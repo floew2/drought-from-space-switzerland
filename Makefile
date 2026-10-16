@@ -12,7 +12,7 @@ demo:               ## whole pipeline on synthetic data -> output/synthetic/
 demo-fresh:         ## same, regenerating the synthetic inputs first
 	PYTHONPATH=src $(PY) -m drought.cli demo --fresh
 
-gallery: demo       ## refresh the committed figures in docs/figures/{model,demo}
+gallery:            ## refresh docs/figures/model (the sensor-response figure)
 	PYTHONPATH=src $(PY) -m drought.cli gallery
 
 notebook:           ## re-run notebooks/walkthrough.ipynb on synthetic data (commit the result)

@@ -233,8 +233,6 @@ synthetic:
 
 # --- Earth Engine ------------------------------------------------------------
 # Read directly by the Python exports (`drought ee …`, src/drought/engine/).
-# `drought gee render` writes the shared ones into the two interactive scripts
-# in gee/, and CI checks that the committed scripts match.
 gee:
   # The Earth Engine project holding the assets. Empty on purpose: it is yours,
   # not the repository's. Set it in config.local.yaml (git-ignored):
@@ -258,8 +256,8 @@ gee:
     cuts: 0.50
     sensitivity: 0.60
     trajectory: 0.60
-    map: 0.60                            # gee/gee_grassland_map.js (interactive)
-    hotspots: 0.60                       # gee/gee_s2_hotspots.js (interactive)
+    map: 0.60                            # unused since the interactive scripts were removed;
+    hotspots: 0.60                       # kept so existing exports keep their CONFIG_HASH
   # Purity sensitivity: a parcel enters the test if any cell inside it reaches
   # this. 0.0 = every parcel, so the sweep covers the population the anomaly is
   # reported for (HANDOVER §8). 0.90 restricts it to large compact fields and

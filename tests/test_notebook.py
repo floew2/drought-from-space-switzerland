@@ -25,6 +25,13 @@ def test_committed_outputs_are_from_a_synthetic_run():
     assert "profile: real" not in text, "a notebook run on real data must never be committed"
 
 
+def test_no_figures_in_committed_outputs():
+    """Synthetic figures are never committed; they appear when the notebook is run."""
+    for c in NB["cells"]:
+        for o in c.get("outputs", []):
+            assert "image/png" not in o.get("data", {})
+
+
 def test_no_local_paths_in_outputs():
     for t in _outputs():
         assert not re.search(r"/Users/|/home/|[A-Z]:\\\\Users", t), t[:200]

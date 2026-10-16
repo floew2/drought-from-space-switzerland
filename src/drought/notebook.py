@@ -3,9 +3,10 @@
     drought notebook            # execute in place (the committed version)
     drought notebook --check    # execute a copy; fail if any cell errors (CI)
 
-The committed notebook carries the outputs of a SYNTHETIC run, so GitHub shows
-it rendered. Before saving, local paths are replaced by repository-relative
-ones. `tests/test_notebook.py` refuses a committed notebook that was run on
+The committed notebook carries the text outputs of a SYNTHETIC run (numbers
+and tables), so GitHub shows what each step returns. Figures are dropped:
+synthetic figures are never committed, and they appear when you run it.
+Before saving, local paths are replaced by repository-relative ones. `tests/test_notebook.py` refuses a committed notebook that was run on
 real data, or that leaks a local path.
 """
 
@@ -31,7 +32,9 @@ def _clean(nb) -> None:
         if c.cell_type != "code":
             continue
         c.metadata.pop("execution", None)
-        for o in c.get("outputs", []):
+        c.outputs = [o for o in c.get("outputs", [])
+                     if "image/png" not in o.get("data", {})]
+        for o in c.outputs:
             if o.output_type == "stream":
                 o.text = _scrub(o.text)
             elif "data" in o and "text/plain" in o.data:

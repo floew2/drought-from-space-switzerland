@@ -275,8 +275,7 @@ def register(path: str | Path, kind: str) -> Path:
             field, was, cur = _first_difference(old, _render_view()) if old else (
                 "config hash", m.group(1), now)
             raise ProvenanceError(path, field, was, cur,
-                                  "Re-render the scripts (`drought gee render`) and "
-                                  "re-run the export (`drought ee ...`).")
+                                  "Re-run the export (`drought ee ...`).")
     rec = record(kind, path, content)
     rec["registered_from"] = "earth engine export"
     return write_sidecar(path, rec)

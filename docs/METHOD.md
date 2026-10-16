@@ -716,8 +716,7 @@ Bug 6 was not fixed by being careful. It was fixed by structure
   stamped with the mask's content hash, and an export refuses to start against
   an asset with any other stamp. Exports are named with a hash of every
   Earth Engine setting plus the mask, and each download is registered as it
-  arrives. The two remaining Code Editor scripts, a map and a hotspot view,
-  get their shared settings from `drought gee render`, checked by CI.
+  arrives.
 - **`output/results.json` never mixes vintages.** Each section is stamped with
   the settings and mask it was computed under. A stale section is dropped on
   the next write, and `results.json` refuses to load while one remains.
