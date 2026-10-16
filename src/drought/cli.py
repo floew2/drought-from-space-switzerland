@@ -79,6 +79,12 @@ def _mask_check(a) -> None:
         inputs=[config.mask_path()])
 
 
+def _mask_overview(a) -> None:
+    from . import mask, mask_figures
+    master = mask.master_parcels(a.shp_dir, verbose=False)
+    mask_figures.figure_mask_overview(thresholds=tuple(a.thresholds), master=master)
+
+
 def _mask_figures(a) -> None:
     from . import mask, mask_figures
     master = mask.master_parcels(a.shp_dir, verbose=False)
@@ -399,11 +405,16 @@ def build_parser() -> argparse.ArgumentParser:
         dest="action", required=True, metavar="ACTION")
     for name, func, text in (("build", _mask_build, "build the four-band purity raster"),
                              ("check", _mask_check, "area cost per threshold; PSF model check"),
-                             ("figures", _mask_figures, "the mask figures")):
+                             ("figures", _mask_figures, "the mask figures"),
+                             ("overview", _mask_overview,
+                              "imagery, field outlines and purity, one row per site")):
         c = m.add_parser(name, help=text)
         c.add_argument("--shp-dir", help="folder with the yearly shapefiles (default: config)")
         if name == "check":
             c.add_argument("--site", help="restrict to one site window")
+        if name == "overview":
+            c.add_argument("--thresholds", nargs="+", type=float, default=[0.0, 0.5, 0.9],
+                           help="purity thresholds, one column each (default: 0 0.5 0.9)")
         if name == "figures":
             c.add_argument("--sites", nargs="+", default=["linthebene"],
                            help="sites for the per-site figures")

@@ -27,6 +27,7 @@ Expected files:
 | `precip_stg_2026.png` | `drought precip --download` | 14 Oct 2026 (data to 12 Oct) |
 | `parcel_size.png` | `drought mask figures` | 14 Oct 2026 |
 | `area_check_all.png` | same | 14 Oct 2026 |
+| `mask_overview_intensive.png` | slide 20 of the presentation (earlier mask, σ 5.3 m); `drought mask overview` redraws it. Shows field outlines: the author's explicit exception to rule 1 | Aug 2026 |
 | `overview.png` | README figure: upper panels of `precip_stg_2026.png` and `vi_trajectory_NDMI_intensive_linthebene.png`, with `mowing_one_field_2025_2026.png` below | 16 Oct 2026 |
 | `mowing_one_field_2025_2026.png` | one field's NDMI/NDVI series from the presentation (no ID, no location; the author's explicit exception to rule 1) | Aug 2026 |
 | `rheintal_s2_truecolour.jpg` | Earth Engine Code Editor, from the presentation | Aug 2026 (window 15 Jun – 31 Jul) |

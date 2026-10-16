@@ -2,9 +2,10 @@
 
 The figures, rendered, so the results can be read without cloning. All of them
 come from the real data, except the sensor-response model, which uses no data
-at all. They are aggregates (curves, distributions, totals) and imagery; no
-map, field outline or purity patch from the cantonal data is published. The one
-single-field curve below carries no ID and no location.
+at all. They are aggregates (curves, distributions, totals) and imagery. Two
+exceptions show individual fields: the imagery-to-mask overview (field outlines
+in three 500 m windows) and one meadow's mowing curve (no ID, no location). The
+parcel data itself is not published.
 
 Synthetic figures are never committed. `make demo` writes them to
 `output/synthetic/figures/` for anyone who wants to see what each step does.
@@ -20,6 +21,19 @@ The real figures are copied in by hand from a real run
 Sentinel-2 true colour, 10 m, 15 June – 31 July: the 2019–2025 median against
 2026, with an identical stretch. Made in the Earth Engine Code Editor for the
 August 2026 presentation. Imagery only; no parcel data.
+
+## From imagery to mask
+
+![Three landscapes: Sentinel-2 imagery, field outlines, and purity at three thresholds](figures/real/mask_overview_intensive.png)
+
+Intensive grassland at Linthebene, in the Rheintal and at Alpstein, 500 m
+across. From left: Sentinel-2 false colour, the field outlines, and purity at
+three thresholds (white pure, grey mixed, black discarded). The percentages are
+retained area against field area: above 100 % at a low threshold, the response
+reaches past the fields. From the August 2026 presentation, built with the
+earlier single-Gaussian response (σ 5.3 m); `drought mask overview` redraws it
+from the current mask.
+[METHOD §2.4](METHOD.md#24-what-the-threshold-costs).
 
 ## Grassland condition, season NDMI against 2019–2025
 

@@ -109,6 +109,16 @@ real optics are not exactly Gaussian.
 Only cells with purity ≥ 0.90 are used. That costs area, most of all for the
 small extensive meadows:
 
+![Three landscapes: Sentinel-2 imagery, field outlines, and purity at three thresholds](figures/real/mask_overview_intensive.png)
+
+*Intensive grassland at Linthebene, in the Rheintal and at Alpstein, 500 m
+across. From left: Sentinel-2 false colour, the field outlines, and purity at
+three thresholds (white pure, grey mixed, black discarded). The percentages are
+retained area against field area: above 100 % at a low threshold, the response
+reaches past the fields. From the August 2026 presentation, built with the
+earlier single-Gaussian response (σ 5.3 m); `drought mask overview` redraws it
+from the current mask.*
+
 ![Observed area against polygon area, by purity threshold](figures/real/area_check_all.png)
 
 | category | observed / polygon area at purity > 0 | at ≥ 0.90 |
