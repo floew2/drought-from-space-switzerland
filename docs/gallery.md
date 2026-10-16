@@ -11,7 +11,7 @@ three kinds, and they are never mixed:
   step of the method does, not what happened in 2026.
 
 `make gallery` refreshes the model and synthetic figures. The real figures are
-copied in by hand from a real run ([rules](figures/real/README.md)).
+copied in by hand from a real run ([rules](https://github.com/floew2/drought-from-space-switzerland/blob/main/docs/figures/real/README.md)).
 
 ---
 

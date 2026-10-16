@@ -428,24 +428,39 @@ def hand_labels(rng: np.random.Generator, truth: pd.DataFrame, n_by_site=None) -
     Args:
         rng: Seeded generator.
         truth: From `cut_series`.
-        n_by_site: Parcel-years to label per site; defaults to 40 + 25 = 65,
-            the size of the real reference set.
+        n_by_site: Parcel-years to label per site; defaults to 143 at
+            Linthebene, the size of the real reference set, and 25 at Rheintal.
+
+    As in the real set, some parcels labelled in the current year are also
+    labelled in a baseline year (about one each), so the label-only last-cut
+    comparison has pairs to work on.
 
     Returns:
         {site: {"<parcel_id>|<year>": [doy, ...]}}
     """
     from ..config import CFG
 
-    n_by_site = n_by_site or {"linthebene": 40, "rheintal": 25}
+    n_by_site = n_by_site or {"linthebene": 143, "rheintal": 25}
     lo, hi = CFG.detect.season
+    cur = int(CFG.project.current_year)
     out = {}
     for site, n in n_by_site.items():
         t = truth[truth.site == site]
         # Spread across years, so per-year recall is measurable.
-        per_year = max(n // t.year.nunique(), 1)
-        pick = pd.concat([g.sample(min(per_year, len(g)),
-                                   random_state=int(rng.integers(1 << 31)))
-                          for _, g in t.groupby("year")])
+        n_years = t.year.nunique()
+        per_year = max(n // n_years, 1)
+        g_cur = t[t.year == cur]
+        first = g_cur.sample(min(per_year, len(g_cur)), random_state=int(rng.integers(1 << 31)))
+        ids = list(first.parcel_id)
+        n_rep = round(per_year * len(ids) / max(per_year * (n_years - 1), 1)) if ids else 0
+        picks = [first]
+        for k, g in enumerate(g for y, g in t.groupby("year") if y != cur):
+            again = [ids[(k * n_rep + j) % len(ids)] for j in range(n_rep)] if ids else []
+            rep = g[g.parcel_id.isin(again)]
+            other = g.drop(rep.index)
+            picks += [rep, other.sample(min(per_year - len(rep), len(other)),
+                                        random_state=int(rng.integers(1 << 31)))]
+        pick = pd.concat(picks)
         rest = t.drop(pick.index)
         pick = pd.concat([pick, rest.sample(n - len(pick), random_state=int(rng.integers(1 << 31)))])
         labels = {}

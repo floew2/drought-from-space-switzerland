@@ -110,7 +110,7 @@ mask:
   # would be only 10.2 m wide — never state the two as one Gaussian.
   # Instrument response only: L2A resampling and the LV95/UTM grid offset widen
   # it further.
-  psf_mtf_nyquist: 0.25    # ESA MSI system MTF at Nyquist — CITATION PENDING
+  psf_mtf_nyquist: 0.25    # system MTF at Nyquist; ESA specifies 0.15-0.30 for the 10 m bands
   # box_gauss  detector box (x) Gaussian optics, as above. The settled model.
   # gauss      one Gaussian fitted to the whole system MTF (sigma 5.30 m),
   #            read as a 2x2 sub-cell mean around the cell centre (effective

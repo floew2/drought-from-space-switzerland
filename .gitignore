@@ -31,3 +31,7 @@ dist/
 *.gpkg
 *.tif
 *.tiff
+
+# website build
+site/src/
+site/_build/

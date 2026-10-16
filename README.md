@@ -1,25 +1,19 @@
 # Reading a drought from space
 
-Sentinel-2 and MeteoSwiss station data show that the 2026 summer drought in the
-Canton of St. Gallen cut the season's grassland moisture signal by roughly a
-quarter. Every site and management system ranked last of eight years.
+[![ci](https://github.com/floew2/drought-from-space-switzerland/actions/workflows/ci.yml/badge.svg)](https://github.com/floew2/drought-from-space-switzerland/actions/workflows/ci.yml)
+![python](https://img.shields.io/badge/python-3.11%20%7C%203.13-blue)
+![licence](https://img.shields.io/badge/licence-MIT-green)
+
+How hard did the 2026 summer drought hit grassland in the Canton of St. Gallen,
+Switzerland? Sentinel-2 imagery and MeteoSwiss station data both say: **the
+season's grassland moisture signal fell by roughly a quarter, and 2026 ranked
+last of eight years at every site and for every management system.**
 
 ![Linthebene, intensive meadows: 2026 NDMI against the 2019–2025 envelope](docs/figures/real/vi_trajectory_NDMI_intensive_linthebene.png)
 
-*Linthebene, intensive meadows, site-mean NDMI. Real data, run of 14 October 2026.
-The input data cannot be published; the commands below run the same pipeline on
-synthetic data.*
+*Linthebene, intensive meadows, site-mean NDMI. Real data, run of 14 October 2026.*
 
-```bash
-git clone https://github.com/floew2/drought-from-space-switzerland.git
-cd drought-from-space-switzerland
-make install        # pip install -e ".[dev]"
-make demo           # whole pipeline on synthetic data, ~80 s -> output/synthetic/
-```
-
----
-
-## Results (real data)
+## Results
 
 | | Linthebene | St. Galler Rheintal |
 |---|---|---|
@@ -27,116 +21,137 @@ make demo           # whole pipeline on synthetic data, ~80 s -> output/syntheti
 | Season NDMI integral, extensive meadows | **−29 %** | **−28 %** |
 | Rank among 2019–2026 | 1 of 8 | 1 of 8 |
 
-The comparison is 2026 against the 2019–2025 median over May to September
-(DOY 121–273), on the 103–114 days that every year observed. The deficit was not
-season-long. Spring ran at or above normal; the index collapsed through July to
-0.09–0.15 in mid-August and recovered sharply from early September.
+- **When:** spring ran at or above normal. The index collapsed through July to
+  0.09–0.15 in mid-August, then recovered sharply from early September.
+- **Independent check:** St. Gallen recorded 690 mm of rain by 12 October, 61 %
+  of the 1991–2020 median and the driest of 31 years. The climatic water balance
+  P − ET0 stood at −74 mm, against a median of +494 mm.
+- **Robust to the choices:** with the haze filter off, 2026 still ranks last
+  everywhere. At every purity threshold from 0 to 0.95, its anomaly is negative
+  at every site.
+- **Mowing:** from the hand labels, fields stopped mowing a median 12 days
+  earlier in 2026 (15 of 22 fields). On this sample that is an indication, not
+  yet a significant result.
 
-The station data, an entirely independent source, agree. St. Gallen recorded
-690 mm by 12 October, 61 % of the 1991–2020 median and the driest of 31 years.
-The climatic water balance P − ET0 stood at −74 mm, against a median of +494 mm.
+The comparison is 2026 against the 2019–2025 median, May to September
+(DOY 121–273), on the days every year observed.
 
-Every number above comes from the pipeline in this repository as it stands: the
-box ⊛ Gaussian sensor response, no parcel size filter, the Earth Engine exports
-run from Python, and every input checked against its provenance record. A
-preliminary run with an older mask had given larger deficits at Linthebene (−33
-and −35 %); [METHOD §3.4](docs/METHOD.md#34-result) says what changed and what
-did not. The result does not depend on the residual-haze filter: with it off,
-every series still ranks last, and three of four integrals move by under half a
-point.
+## Read it, or run it
 
-## What this repository is evidence of
+| if you want to… | go to |
+|---|---|
+| read the whole story as a website | **[floew2.github.io/drought-from-space-switzerland](https://floew2.github.io/drought-from-space-switzerland/)** |
+| see the whole pipeline, with figures, without installing anything | **[notebooks/walkthrough.ipynb](notebooks/walkthrough.ipynb)** (rendered on GitHub) |
+| understand why each step is built the way it is | **[docs/METHOD.md](docs/METHOD.md)** |
+| look at the figures | [docs/gallery.md](docs/gallery.md) |
+| run it yourself, on synthetic data | the four lines below |
+| run it on real data | [docs/WORKFLOW.md](docs/WORKFLOW.md) |
 
-The code is the smaller part. The judgement trail is in **[docs/METHOD.md](docs/METHOD.md)**;
-in brief:
+```bash
+git clone https://github.com/floew2/drought-from-space-switzerland.git
+cd drought-from-space-switzerland
+make install        # pip install -e ".[dev]"   (uv: uv sync --extra dev)
+make demo           # the whole pipeline on synthetic data, ~90 s -> output/synthetic/
+```
 
-- **Which pixels to trust is derived, not assumed.** The Sentinel-2 response
-  is modelled from the specified MTF: a detector box convolved with Gaussian
-  optics. Pixel purity is the share of a cell's response that comes from
-  inside a field. The threshold's cost was measured for each management
-  system, and so was its effect on the answer. The 2026 anomaly grows steadily
-  as the threshold tightens, by 3–4 % for intensive meadows and 9–15 % for
-  extensive ones. The threshold in use, 0.90, is within 3.3 % of the strictest
-  value tested, so mixed pixels make the reported drought signal slightly
-  weaker, never stronger.
-- **Invariants caught real bugs.** The observed area at purity > 0 must exceed
-  the polygon area, because the response reaches past every boundary. Seeing
-  it fall below 1 exposed a mask design that zeroed the halo, and the mask was
-  rebuilt polygon-first. Matching parcels by centroid kept 43 %; matching by
-  area overlap kept 86 % (81 % now that fields down to 0.05 ha are included).
-- **The cut detector uses machine-learning methodology without a learned
-  model.** It was tuned on 42 hand-labelled parcel-years and then frozen; the
-  label set has since grown to 143 without the configuration changing. On the
-  136 scorable parcel-years, F1 is 0.868, and 0.897 without 2026. In 2026,
-  precision falls to 0.64: 23 of its 34 false positives fall between DOY 220
-  and 260, on the drought recovery, which the synthetic data had predicted.
-  So the last-cut comparison ends at DOY 228 for every year, and is also
-  computed from the hand labels alone: the 2026 median is 12 days earlier,
-  with 15 of 22 fields stopping sooner. That is an indication, not yet
-  significant (sign test p ≈ 0.13). A changepoint alternative scored
-  F1 0.805 on the same labels and was rejected. Both are kept in the code.
-- **Numbers carry their provenance, and stale files are refused.** Every data
-  file has a record of the settings and mask that produced it. Loading
-  refuses a mismatch and names the field, which turns the project's worst
-  recurring problem (results outliving the method that made them) into
-  something enforced ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)).
-- **Packaging found things.** Packaging this repository turned up a
-  mismatch between the response model on the slides and the one in the code,
-  and a filter bug in the parcel selection. Both are documented and measured,
-  and neither was fixed silently ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)).
+**Synthetic data** needs no account and no download. It is generated
+deterministically, calibrated to the real data's schemas, parcel shapes and
+headline numbers, and every figure from it is stamped SYNTHETIC. The demo
+prints each synthetic number beside the real one, marked *calibrated* or
+*emergent*, and exits non-zero if a target or a physical invariant fails.
 
-## Running it
+**Real data** is partly open. Precipitation reproduces exactly from MeteoSwiss
+Open Data. The Sentinel-2 steps need a free (noncommercial) Earth Engine
+project and parcel polygons. The most recent year of those is free from
+[geodienste.ch](https://www.geodienste.ch/); the multi-year history used here
+came from the Canton of St. Gallen and is not redistributed. The hand labels
+are not published.
+[WORKFLOW](docs/WORKFLOW.md#what-you-can-reproduce-without-my-data) says what
+each step needs.
 
-Everything runs through one command, `drought` (see `drought --help`):
+## How it works
+
+```mermaid
+flowchart LR
+  P["parcel polygons<br/>2017–2025"] --> M["purity mask<br/>sensor-response model, 10 m"]
+  M --> E["Earth Engine exports<br/>run from Python"]
+  S2["Sentinel-2 L2A<br/>+ Cloud Score+"] --> E
+  E --> C["grassland condition<br/>NDMI trajectories, season integral"]
+  E --> D["cut detection<br/>frozen rules, validated on hand labels"]
+  W["MeteoSwiss station"] --> R["precipitation, P − ET0"]
+  C & D & R --> O["figures + results.json<br/>every number with its provenance"]
+```
+
+## What this repository shows
+
+The code is the smaller part. The judgement trail is in
+[METHOD.md](docs/METHOD.md); in brief:
+
+- **Which pixels to trust is derived, not assumed.** Most Swiss meadow cells
+  touch a field edge. The Sentinel-2 response is modelled from ESA's MTF
+  specified range (a detector box convolved with Gaussian optics). A cell's
+  purity is the share of its response that comes from inside the field. Only
+  cells with purity ≥ 0.90 are used. Sweeping that threshold shows that mixed
+  pixels make the drought signal slightly *weaker*, never stronger.
+- **Invariants catch bugs.** Because the response reaches past every boundary,
+  the observed area at purity > 0 must exceed the polygon area. When it once
+  fell below 1, that exposed a mask that had zeroed the halo. Fourteen bugs
+  are documented with how each was found, and the code-level ones have a
+  regression test that the old logic fails
+  ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)).
+- **Machine-learning validation, without a learned model.** The cut detector is
+  a transparent rule set, tuned on 42 hand-labelled field-years and then
+  frozen. On 136 field-years it scores F1 0.868, and 0.897 without 2026. The
+  synthetic data had predicted where it would fail in a drought year (the
+  recovery looks like regrowth after a cut), and the real labels confirmed it:
+  23 of 34 false positives in 2026. So the headline mowing result comes from
+  the hand labels, not from the detector. A changepoint alternative was built
+  and rejected on the same labels (F1 0.805).
+- **Stale results cannot get through.** Every data file has a record of the
+  settings and mask that produced it. Loading refuses a mismatch and names the
+  setting that changed. The Earth Engine mask asset is checked cell by cell
+  against the local file before any export runs.
+
+## Commands
+
+Everything runs through one command, `drought` (`drought --help`):
 
 | | |
 |---|---|
-| `drought demo` | Mask build, area accounting, trajectories, precipitation, cut detection and scoring, all on synthetic data. Exits non-zero if a calibrated value misses its target or a physical invariant fails. `make demo` runs the same. |
-| `drought --synthetic mask check` | Area cost of each purity threshold, and the PSF-model comparison. |
-| `drought --synthetic cuts score --site linthebene` | The frozen detector and the changepoint alternative, scored against the labels. |
-| `drought --synthetic cuts errors --site linthebene` | Where the detector errs: current year against the others, false positives by date. |
-| `drought --synthetic cuts labels --site linthebene` | Last-cut shift from the hand labels alone, no detector (default end DOY 228). |
-| `drought results show` | Every headline number from `results.json`, refused if any of it was computed under other settings or another mask. |
-| `drought ee trajectory` / `sensitivity` / `cuts` | Runs the Earth Engine exports from Python: checks the mask asset is the local mask, waits, downloads, registers. |
-| `drought gee render` | Writes `config.yaml`'s shared settings into the two interactive Code Editor scripts; CI fails if they drift. |
-| `drought config show mask` | The effective configuration, after all overrides. |
-| `make test` | One regression test per bug that actually happened, each also showing that the old logic fails it ([METHOD §6](docs/METHOD.md#6-bugs-found-by-checks)); plus the PSF derivation, CLI precedence and synthetic calibration. |
+| `drought demo` | The whole pipeline on synthetic data, self-checking. |
+| `drought notebook` | Re-runs the walkthrough notebook on synthetic data. |
+| `drought --synthetic mask check` | Area cost of each purity threshold; the response-model comparison. |
+| `drought --synthetic cuts score --site linthebene` | The frozen detector and the changepoint alternative against the labels. |
+| `drought --synthetic cuts errors --site linthebene` | Where the detector errs, by year and by date. |
+| `drought --synthetic cuts labels --site linthebene` | Last-cut shift from the hand labels alone. |
+| `drought ee trajectory` / `sensitivity` / `cuts` | The Earth Engine exports, run from Python. |
+| `drought results show` | Every headline number, refused if computed under other settings. |
+| `make test` | The test suite: one regression test per real bug, the response-model derivation, CLI precedence and synthetic calibration. |
 
-Settings come from `config.yaml`. Precedence, lowest to highest:
+All settings live in `config.yaml`. Precedence, lowest to highest:
 `config.yaml` < `--config FILE` < `--synthetic` < `--set KEY=VALUE`. For
 example, `drought --synthetic --set mask.psf_model=gauss mask build` rebuilds
-the mask with the old response model. Only existing keys are accepted. An
-override that would arrive after a module has already read the setting is
-refused rather than silently ignored.
-
-The synthetic inputs are generated deterministically by `drought.synthetic`.
-They match the real data's schemas, its parcel-size and shape distributions,
-its cadastral redraws, splits and merges, and its headline integrals. The demo
-prints every synthetic number beside the real one, marked *calibrated* or
-*emergent*. A calibrated number reproducing its target shows the pipeline is
-wired correctly. It is not new evidence about the drought. Every
-synthetic figure is stamped SYNTHETIC.
-
-To run on the real data, see [docs/WORKFLOW.md](docs/WORKFLOW.md).
+the mask with the older response model.
 
 ## Repository map
 
 ```
-config.yaml              every setting, one place
-src/drought/             the analysis (mask, trajectory, precip, detect, evaluate, ...)
-src/drought/synthetic/   calibrated stand-ins for every input; targets.py lists the real numbers
-src/drought/engine/      the Earth Engine exports, run from Python (`drought ee …`)
-gee/                     two interactive Code Editor scripts (map, hotspots)
-notebooks/analysis.ipynb the working notebook (outputs stripped)
-docs/METHOD.md           how and why — start here
-docs/gallery.md          rendered figures: real results, model, synthetic demo
-docs/WORKFLOW.md         runbook for the real data
-tests/                   pytest; CI runs lint, tests and the demo
+config.yaml                every setting, in one place
+src/drought/               the analysis: mask, trajectory, precip, detect, evaluate, provenance
+src/drought/engine/        the Earth Engine exports, run from Python
+src/drought/synthetic/     calibrated stand-ins for every input; targets.py lists the real numbers
+notebooks/walkthrough.ipynb  the pipeline step by step (synthetic run, outputs included)
+docs/METHOD.md             how and why
+docs/WORKFLOW.md           running on real data
+docs/gallery.md            figures: real results, the sensor model, the synthetic demo
+gee/                       two interactive Earth Engine scripts (map, hotspots), for looking
+site/                      website config (Jupyter Book -> GitHub Pages)
+tests/                     pytest; CI runs lint, tests, the demo and the notebook
 ```
 
 ## Data and licence
 
 Code: MIT ([LICENSE](LICENSE)). Contains modified Copernicus Sentinel data
-(2019–2026), processed in Google Earth Engine. Station data: Source: MeteoSwiss
-(CC BY 4.0). Field geometries and land-use codes: Nutzungsflächen, Kanton
-St. Gallen. These are **not redistributed** in any form.
+(2019–2026), processed in Google Earth Engine. Station data: MeteoSwiss Open
+Data (CC BY 4.0), *Quelle: MeteoSchweiz*. Field geometries and land-use codes:
+Nutzungsflächen, Kanton St. Gallen, **not redistributed** in any form.

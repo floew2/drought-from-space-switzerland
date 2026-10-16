@@ -160,11 +160,17 @@ Nyquist:
 
 | quantity | value | how |
 |---|---|---|
-| system MTF at Nyquist | 0.25 | ESA MSI specification (citation pending, [§8](#8-open-items)) |
+| system MTF at Nyquist | 0.25 | chosen inside ESA's specified range of 0.15–0.30 for the 10 m bands ([ESA, MSI mission performance](https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-2-msi/mission-performance)) |
 | detector MTF at Nyquist | 0.637 | the detector footprint is a box one pixel wide: sinc(½) |
 | optics MTF at Nyquist | 0.393 | 0.25 / 0.637 |
 | σ, Gaussian optics | 4.35 m | from MTF(f) = exp(−2π²σ²f²), f = 1/(2·10 m) |
 | FWHM of the response | 12.7 m | box ⊛ Gaussian, measured numerically |
+
+ESA specifies the system MTF at Nyquist as a range, 0.15–0.30 for the 10 m
+bands, not as one value. 0.25 is an assumption inside that range, not a
+measurement. A lower MTF means a wider response, more halo and fewer pure
+cells. How much 0.15 or 0.30 would change the area ratios has not been computed
+yet ([§8](#8-open-items)).
 
 A Gaussian with σ 4.35 m on its own would be only 10.2 m wide. The 12.7 m exists
 only after convolution with the detector box. The two must never be stated as
@@ -196,8 +202,8 @@ landscape:
 | grazed | 0.890 | 0.882 | +0.7 points |
 
 So the model is not a lever on the result, but it is not nothing either. The
-real mask has not been rebuilt, and the published numbers carry the old model's
-label.
+real mask has since been rebuilt with box ⊛ Gaussian, and every real number in
+this document comes from it.
 
 **A trap when switching.** Swapping σ from 5.30 m to 4.35 m while keeping the
 centre read-out gives Gaussian(4.35) sampled at the centre. That response is
@@ -207,8 +213,8 @@ the code actually applies and fails on exactly this mistake.
 
 Approximations to state with the result: the model is nadir-only and isotropic;
 real optics are Airy-like rather than Gaussian; the real response is slightly
-wider along-track because of motion during integration; and ESA publishes MTF
-per band, while one representative value is used here.
+wider along-track because of motion during integration; and ESA specifies a
+range for the 10 m bands, from which one representative value is used here.
 
 ### 2.4 What the threshold costs
 
@@ -785,8 +791,9 @@ real result above stands or falls on the real data.
 
 ## 8. Open items
 
-- **Citation for the Sentinel-2 system MTF of 0.25 at Nyquist.** The whole of
-  §2.3 rests on it.
+- **The MTF assumption.** ESA specifies 0.15–0.30 at Nyquist for the 10 m bands;
+  0.25 is used (§2.3). Rebuilding the synthetic mask at 0.15 and 0.30
+  (`--set mask.psf_mtf_nyquist=…`) would show what the choice costs.
 - **Cut extraction on the 10 m mask, full season** (§5.6). The labelled
   field-years are done and the detector re-scored; the full per-site sample
   exceeds the free Earth Engine quota.

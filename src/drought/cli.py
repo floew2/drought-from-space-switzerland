@@ -9,6 +9,7 @@
     drought cuts detect --site S
     drought cuts score --site S
     drought gallery
+    drought notebook
     drought ee check|stamp-mask|trajectory|sensitivity|cuts|run-all
     drought sensitivity plot [--site S] [--regime R]
     drought gee render [--out DIR] [--check]
@@ -201,6 +202,11 @@ def _cuts_labels(a) -> None:
     print(f"  2026 mean last cut      DOY {t.current.mean():.1f}")
     print(f"  median shift            {t.shift_days.median():+.1f} days")
     print(f"  parcels stopping sooner {int((t.shift_days < 0).sum())} of {len(t)}")
+
+
+def _notebook(a) -> None:
+    from . import notebook
+    notebook.run(check=a.check)
 
 
 def _gallery(a) -> None:
@@ -464,6 +470,9 @@ def build_parser() -> argparse.ArgumentParser:
     c.set_defaults(func=_cuts_labels)
 
     sub.add_parser("gallery", help="refresh docs/figures/{model,demo}").set_defaults(func=_gallery)
+    nb = sub.add_parser("notebook", help="run notebooks/walkthrough.ipynb on synthetic data")
+    nb.add_argument("--check", action="store_true", help="run a copy; fail on any error (CI)")
+    nb.set_defaults(func=_notebook)
 
     g = sub.add_parser("gee", help="Earth Engine scripts").add_subparsers(
         dest="action", required=True, metavar="ACTION")

@@ -1,7 +1,7 @@
 # Fresh clone:   make install && make demo
 PY ?= python
 
-.PHONY: install demo demo-fresh gallery test lint check clean
+.PHONY: install demo demo-fresh gallery notebook site test lint check clean
 
 install:            ## editable install with test and lint tools
 	$(PY) -m pip install -e ".[dev]"
@@ -14,6 +14,15 @@ demo-fresh:         ## same, regenerating the synthetic inputs first
 
 gallery: demo       ## refresh the committed figures in docs/figures/{model,demo}
 	PYTHONPATH=src $(PY) -m drought.cli gallery
+
+notebook:           ## re-run notebooks/walkthrough.ipynb on synthetic data (commit the result)
+	PYTHONPATH=src $(PY) -m drought.cli notebook
+
+site:               ## build the website into site/_build/html (pip install "jupyter-book>=1,<2" sphinxcontrib-mermaid)
+	rm -rf site/src && mkdir -p site/src
+	cp -r README.md LICENSE docs notebooks site/src/
+	cp site/_config.yml site/_toc.yml site/src/
+	jupyter-book build site/src --path-output site
 
 test:
 	$(PY) -m pytest

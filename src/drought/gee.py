@@ -35,8 +35,7 @@ BEGIN = "// >>> drought gee render"
 END = "// <<< end of generated block"
 PLACEHOLDER = "YOUR_EE_PROJECT"
 
-# Which generated variables each script receives. gee_switzerland_rgb.js is not
-# rendered: it is MODIS, with a deliberately different baseline (2011-2020).
+# Which generated variables each script receives.
 SCRIPTS = {
     "gee_grassland_map.js": ("PROJECT", "ASSETS", "CONFIG_HASH", "PURITY_MIN",
                              "CLEAR_THRESHOLD", "MASK_BANDS", "MOWN_CODES", "GRAZED_CODES",

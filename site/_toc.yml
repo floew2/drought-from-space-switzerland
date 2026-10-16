@@ -1,0 +1,11 @@
+format: jb-book
+root: README
+chapters:
+  - file: notebooks/walkthrough
+    title: Walkthrough
+  - file: docs/METHOD
+    title: Method
+  - file: docs/gallery
+    title: Figures
+  - file: docs/WORKFLOW
+    title: Running on real data

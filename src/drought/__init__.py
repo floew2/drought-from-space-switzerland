@@ -15,7 +15,7 @@ import importlib as _importlib
 
 _SUBMODULES = ("changepoint", "clean", "cli", "config", "demo", "detect", "engine", "evaluate",
                "figures", "gallery", "gee", "io", "labelling", "labels", "mask",
-               "mask_figures", "metrics", "precip", "provenance", "results", "synthetic",
+               "mask_figures", "metrics", "notebook", "precip", "provenance", "results", "synthetic",
                "trajectory")
 # config.provenance() (settings + timestamp) is reached as drought.config.provenance;
 # drought.provenance is the module that records and verifies files.

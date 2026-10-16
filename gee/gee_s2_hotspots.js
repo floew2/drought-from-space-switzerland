@@ -1,15 +1,13 @@
 // =============================================================================
 // Drought 2026 — Sentinel-2 zoom-ins for selected hotspots
-// Companion to the national MODIS overview. Run ONCE PER SITE (set ACTIVE_SITE).
+// Run ONCE PER SITE (set ACTIVE_SITE). For looking, not for data.
 //
-// Why Sentinel-2 here, and why this is the stronger figure of the two:
-//   * 10 m instead of 500 m — individual fields, shorelines, field boundaries.
+// Why Sentinel-2:
+//   * 10 m — individual fields, shorelines, field boundaries.
 //   * A STABLE overpass. Sentinel-2's mean local descending node is ~10:30 and
-//     is actively maintained, so the 12.6 deg solar-zenith drift that confounds
-//     the MODIS 2011-vs-2026 pair does not apply. Whatever difference you see
-//     here is much closer to being real surface change.
-//   * All three sites are flat, so topographic shading — the other MODIS
-//     confound — is largely absent.
+//     is actively maintained, so there is no solar-zenith drift between years.
+//     Whatever difference you see is much closer to real surface change.
+//   * All three sites are flat, so topographic shading is largely absent.
 //
 // What you give up, and it must be stated:
 //   * The baseline is only 7 years (2019-2025). Sentinel-2 L2A does not reach
@@ -36,7 +34,7 @@ var ACTIVE_SITE = 'untersee';   // 'untersee' | 'rheintal' | 'linthebene'
 
 // YEAR_DRY, BASELINE_YEARS: rendered from config.yaml (project).
 
-var DOY_START = 166;   // same window as the MODIS figure, for comparability
+var DOY_START = 166;   // mid-June to end of July: the onset of the drought
 var DOY_END   = 212;
 
 var QA_BAND        = 'cs_cdf';  // 'cs' is more instantaneous; 'cs_cdf' more stable
