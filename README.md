@@ -38,10 +38,26 @@ browning is field by field, not a colour change of the image.*
 The comparison is 2026 against the 2019–2025 median, May to September
 (DOY 121–273), on the days every year observed.
 
-![Linthebene, intensive meadows: 2026 NDMI against the 2019–2025 envelope](docs/figures/real/vi_trajectory_NDMI_intensive_linthebene.png)
+<table>
+<tr>
+<td width="50%"><img src="docs/figures/real/vi_trajectory_NDMI_intensive_linthebene.png" alt="Linthebene, intensive meadows: 2026 NDMI against the 2019–2025 envelope"></td>
+<td width="50%"><img src="docs/figures/real/vi_trajectory_NDMI_extensive_rheintal.png" alt="Rheintal, extensive meadows: 2026 NDMI against the 2019–2025 envelope"></td>
+</tr>
+<tr>
+<td><b>Linthebene, intensive meadows.</b> Site-mean NDMI, 2026 (red) against the 2019–2025 envelope.</td>
+<td><b>Rheintal, extensive meadows.</b> A different site and management system: the same summer collapse, rank 1 of 8.</td>
+</tr>
+<tr>
+<td><img src="docs/figures/real/mowing_one_field_2025_2026.png" alt="One meadow, 2025 against 2026: five cuts, then three and no regrowth"></td>
+<td><img src="docs/figures/real/precip_stg_2026.png" alt="Cumulative precipitation and P − ET0 at St. Gallen, 2026 against 1991–2020"></td>
+</tr>
+<tr>
+<td><b>You can watch the mowing stop.</b> One meadow, two summers. Each sawtooth is a harvest. In 2026, after the July cut, the canopy no longer regrows.</td>
+<td><b>Station St. Gallen.</b> Cumulative precipitation and P − ET0, 2026 against 1991–2020: the driest of 31 years.</td>
+</tr>
+</table>
 
-*Linthebene, intensive meadows, site-mean NDMI against the 2019–2025 envelope.
-Real data, run of 14 October 2026.*
+*Real data, runs of 14 October 2026 (the single field: presentation, August 2026).*
 
 ## Read it, or run it
 
