@@ -9,9 +9,11 @@ Switzerland? Sentinel-2 imagery and MeteoSwiss station data both say: **the
 season's grassland moisture signal fell by roughly a quarter, and 2026 ranked
 last of eight years at every site and for every management system.**
 
-![Linthebene, intensive meadows: 2026 NDMI against the 2019–2025 envelope](docs/figures/real/vi_trajectory_NDMI_intensive_linthebene.png)
+![St. Galler Rheintal near Altstätten: Sentinel-2 true colour, 2019–2025 median against 2026, 15 June – 31 July](docs/figures/real/rheintal_s2_truecolour.jpg)
 
-*Linthebene, intensive meadows, site-mean NDMI. Real data, run of 14 October 2026.*
+*St. Galler Rheintal near Altstätten, Sentinel-2 true colour at 10 m, 15 June –
+31 July. Left: median of 2019–2025. Right: 2026. Same stretch on both, so the
+browning is field by field, not a colour change of the image.*
 
 ## Results
 
@@ -35,6 +37,11 @@ last of eight years at every site and for every management system.**
 
 The comparison is 2026 against the 2019–2025 median, May to September
 (DOY 121–273), on the days every year observed.
+
+![Linthebene, intensive meadows: 2026 NDMI against the 2019–2025 envelope](docs/figures/real/vi_trajectory_NDMI_intensive_linthebene.png)
+
+*Linthebene, intensive meadows, site-mean NDMI against the 2019–2025 envelope.
+Real data, run of 14 October 2026.*
 
 ## Read it, or run it
 

@@ -17,6 +17,14 @@ copied in by hand from a real run ([rules](https://github.com/floew2/drought-fro
 
 ## Real results
 
+### What it looked like
+
+![St. Galler Rheintal near Altstätten: Sentinel-2 true colour, 2019–2025 median against 2026](figures/real/rheintal_s2_truecolour.jpg)
+
+Sentinel-2 true colour, 10 m, 15 June – 31 July: the 2019–2025 median against
+2026, with an identical stretch. Made with `gee/gee_s2_hotspots.js` for the
+August 2026 presentation. Imagery only; no parcel data.
+
 ### Grassland condition, season NDMI against 2019–2025
 
 Run of 14 October 2026. Mask built with the box ⊛ Gaussian response model and
