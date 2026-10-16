@@ -1,7 +1,6 @@
 name: pages
 
-# Builds the website (Jupyter Book: README, walkthrough, METHOD, figures,
-# WORKFLOW) and publishes it to GitHub Pages. Skipped while the repository is
+# Builds the website (Jupyter Book: README, walkthrough, METHOD, figures) and publishes it to GitHub Pages. Skipped while the repository is
 # private: Pages on a free account needs a public repository.
 
 on:

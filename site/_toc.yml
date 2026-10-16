@@ -7,5 +7,3 @@ chapters:
     title: Method
   - file: docs/gallery
     title: Figures
-  - file: docs/WORKFLOW
-    title: Running on real data
