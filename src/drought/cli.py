@@ -297,6 +297,10 @@ def _ee(a) -> None:
     if a.action == "stamp-mask":
         stamp.stamp_mask()
         return
+    if a.action == "rgb":
+        from .engine import rgb
+        rgb.run(sites=a.site)
+        return
     imagery.check_mask_asset()                       # before building anything
     if a.action == "trajectory":
         exps = trajectory.exports(smoke=a.smoke)
@@ -468,6 +472,10 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_parser("check", help="project, Drive and mask asset in order?").set_defaults(func=_ee)
     e.add_parser("stamp-mask", help="compare the uploaded asset with the local mask; "
                  "stamp it with the mask's hash if they agree").set_defaults(func=_ee)
+    c = e.add_parser("rgb", help="false-colour composite per site -> data/gee/<site>/rgb_<site>.tif "
+                     "(for `drought mask overview`)")
+    c.add_argument("--site", action="append", help="repeatable; default: all")
+    c.set_defaults(func=_ee)
     for name, text in (("trajectory", "site-mean index series -> data/gee/"),
                        ("sensitivity", "purity-class series per site and system -> data/gee/"),
                        ("cuts", "per-parcel series per year -> data/gee/<site>/"),

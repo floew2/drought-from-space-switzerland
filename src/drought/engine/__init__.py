@@ -28,4 +28,4 @@ committed): `gee: {project: <your-ee-project>}`.
 
 from __future__ import annotations
 
-__all__ = ["cuts", "imagery", "sensitivity", "session", "stamp", "tasks", "trajectory"]
+__all__ = ["cuts", "imagery", "rgb", "sensitivity", "session", "stamp", "tasks", "trajectory"]

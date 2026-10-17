@@ -264,6 +264,13 @@ gee:
   # isolates contamination from composition; run it only if the 0.0 sweep drifts.
   strict_purity: 0.0
 
+  # False-colour composite for the imagery-to-mask figure (`drought ee rgb`).
+  # For looking only; not part of the CONFIG_HASH.
+  rgb:
+    year: 2025                 # an ordinary summer, so the meadows look like meadows
+    doy: [152, 243]            # June to August
+    bands: [B8, B4, B3]        # NIR, red, green
+
   # --- drought.engine: the three exports, run from Python -------------------
   trajectory:
     # FULL season, not the anomaly window: the trajectory shows WHEN 2026
