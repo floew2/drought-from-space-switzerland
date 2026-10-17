@@ -30,9 +30,8 @@ Intensive grassland at Linthebene, in the Rheintal and at Alpstein, 500 m
 across. From left: Sentinel-2 false colour, the field outlines, and purity at
 three thresholds (white pure, grey mixed, black discarded). The percentages are
 retained area against field area: above 100 % at a low threshold, the response
-reaches past the fields. From the August 2026 presentation, built with the
-earlier single-Gaussian response (σ 5.3 m); `drought mask overview` redraws it
-from the current mask.
+reaches past the fields. Current mask, run of 17 October 2026
+(`drought ee rgb`, then `drought mask overview`).
 [METHOD §2.4](METHOD.md#24-what-the-threshold-costs).
 
 ## Grassland condition, season NDMI against 2019–2025
