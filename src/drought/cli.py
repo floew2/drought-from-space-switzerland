@@ -194,6 +194,31 @@ def _cuts_errors(a) -> None:
               f"{int(miss.is_last.sum())}")
 
 
+def _cuts_plot(a) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import drought as dr
+
+    from . import detect, figures, labels
+
+    df = dr.load_site(a.site, verbose=False, labelled=a.labelled)
+    if not a.parcel:
+        lab = labels.load_labels(a.site)
+        years = set(a.years)
+        by_pid = {}
+        for key in lab:
+            pid, yr = key.rsplit("|", 1)
+            by_pid.setdefault(pid, set()).add(int(yr))
+        hits = sorted(pid for pid, ys in by_pid.items() if years <= ys)
+        print(f"labelled in all of {sorted(years)}: {len(hits)} field(s)")
+        for pid in hits:
+            print(f"  {pid}")
+        return
+    ev = detect.detect_all(df, verbose=False)
+    figures.plot_parcel(df, a.parcel, ev, site=a.site, years=a.years, save=True)
+
+
 def _cuts_labels(a) -> None:
     from . import labels, metrics
     lab = labels.load_labels(a.site)
@@ -455,6 +480,15 @@ def build_parser() -> argparse.ArgumentParser:
         c.add_argument("--labelled", action="store_true",
                        help="read data/gee/<site>/labelled/ (from `ee cuts --labelled-only`)")
         c.set_defaults(func=func)
+
+    c = cu.add_parser("plot", help="one field's series with detected cuts, chosen years "
+                      "(without --parcel: list fields labelled in all those years)")
+    c.add_argument("--site", required=True)
+    c.add_argument("--parcel", help="parcel_id; omit to list candidates")
+    c.add_argument("--years", nargs="+", type=int, default=[2025, 2026])
+    c.add_argument("--labelled", action="store_true",
+                   help="read data/gee/<site>/labelled/ (from `ee cuts --labelled-only`)")
+    c.set_defaults(func=_cuts_plot)
 
     c = cu.add_parser("labels", help="last-cut shift from the hand labels alone (no detector)")
     c.add_argument("--site", required=True)
