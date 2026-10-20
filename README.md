@@ -81,7 +81,7 @@ From May to September, the meadows' moisture index stayed 23–29 % below its
 *Left: cumulative rainfall at St. Gallen, 2026 against 1991–2020. Right: NDMI of
 intensive meadows at Linthebene, 2026 against 2019–2025.*
 
-![Per-field NDMI anomaly in the St. Galler Rheintal, 2026](docs/figures/real/field_anomaly_rheintal.png)
+<p align="center"><img src="docs/figures/real/field_anomaly_rheintal.png" alt="Per-field NDMI anomaly in the St. Galler Rheintal, 2026" width="600"></p>
 
 *St. Galler Rheintal: NDMI of each meadow from May to August 2026 against its
 own 2019–2025 median, in standard deviations; red is drier than usual. From the
