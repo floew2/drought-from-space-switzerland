@@ -4,23 +4,27 @@
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.13-blue)
 ![licence](https://img.shields.io/badge/licence-MIT-green)
 
-**Background** In summer 2026, Switzerland was hit hard by drought. At St. Gallen, rainfall to
+**Background.** In summer 2026, Switzerland was hit hard by drought. At St. Gallen, rainfall to
 mid-October reached only 61 % of the long-term median, the driest such period
-in 31 years. Lake levels fell, meadows turned brown, and farmers reported fewer
-grass cuts and shortages of winter feed. This project looks at the drought from
-space, using free and open satellite data (Copernicus Sentinel-2, processed in
-Google Earth Engine) together with open weather-station records. Its focus is
-agricultural land in St. Gallen. A secondary focus is ...
+in 31 years. Lake levels fell to record lows, the grass stopped regrowing, and
+many farms had to feed their winter reserves in summer. This project looks at
+the drought from space, using free and open satellite data
+([Copernicus Sentinel-2](https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-2),
+processed in [Google Earth Engine](https://earthengine.google.com/)) together
+with open weather-station records. Its focus is agricultural land in St. Gallen,
+specifically grassland. A secondary focus is making the drought visible across
+different landscapes: browning across the Swiss Plateau, receding shorelines on
+Lake Constance, and meadows browning field by field in the Rheintal.
 
 ![St. Galler Rheintal near Altstätten: Sentinel-2 true colour, 2019–2025 median against 2026, 15 June – 31 July](docs/figures/real/rheintal_s2_truecolour.jpg)
 
-*St. Galler Rheintal near Altstätten, Sentinel-2 true colour, 15 June – 31 July.
-Left: median of 2019–2025. Right: 2026, same stretch. The meadows browned field
-by field.*
+*St. Galler Rheintal near Altstätten, Sentinel-2 true colour. Left: median of
+2019–2025, 15 June – 31 July. Right: 15 June – 31 July 2026, same stretch. The
+meadows browned field by field.*
 
 **Data and method.** The assessment of drought impact is based on multi-temporal
 (time series) satellite images. A baseline before the current drought year
-(2019-2025) is compared with current image in 2026.
+(2019–2025) is compared with the 2026 season.
 Sentinel-2 imagery at 10 m ground sampling distance (GSD), cloud-masked with
 Cloud Score+, is combined with the cantonal agricultural parcel maps and daily
 MeteoSwiss station data. There is a caveat: Swiss meadows are small, so most of
@@ -31,16 +35,19 @@ adjacent area. Hence, before the analysis of the drought impact, each pixel's pu
 modelled from the sensor's point-spread function (PSF), a 10 m detector box
 convolved with Gaussian optics (12.7 m wide at half maximum) derived from ESA's
 MTF specification. Only pixels that draw at least 90 % of their signal from
-inside a meadow are used to assess the drought impact:
+inside a meadow are used to assess the drought impact. The analysis has three
+parts:
 
-1) **Rainfall and water balance** (using MeteoSwiss Open Data)
+1. **Rainfall and water balance**, from MeteoSwiss Open Data.
+2. **Grassland condition:** the NDMI of the pure pixels, a vegetation index
+   sensitive to canopy water, is tracked through each season and compared with
+   the 2019–2025 baseline.
+3. **Mowing (cutting frequency):** cuts are detected per field with a
+   transparent rule set, validated against 143 hand-labelled field-years.
 
-1) **Grassland condition**: Their NDMI, a vegetation index that is sensitive to canopy water, is
-tracked through each season and compared with the 2019–2025 baseline.
-
-2) **Mowing scores (cutting frequency)** is detected per field with a transparent rule set, validated against 143 hand-labelled field-years. Details: [docs/METHOD.md](docs/METHOD.md).
-
-The grassland mask to model PSF is created based on Cantonal vector data of agricultural parcels from yyyy to yyyy, filtered to meadows based on the official LNF codes.
+The grassland mask is built from the cantonal vector data of agricultural
+parcels from 2017 to 2025, filtered to meadows by their official land-use (LNF)
+codes. Details: [docs/METHOD.md](docs/METHOD.md).
 
 **Summary of scope**
 - **Where:** Canton of St. Gallen, Switzerland: Linthebene and the St. Galler Rheintal.
@@ -79,10 +86,9 @@ make install        # pip install -e ".[dev]"   (uv: uv sync --extra dev)
 make demo           # whole pipeline on synthetic data, ~90 s -> output/synthetic/
 ```
 
-The synthetic inputs have the same formats as the real ones and are calibrated
-to the real headline numbers. The demo prints each synthetic number beside the
-real one and fails if a target or a physical check is missed. Its figures go to
-`output/synthetic/figures/` and are stamped SYNTHETIC.
+The synthetic inputs have the same formats as the real ones, so every step of
+the pipeline runs on them. Figures go to `output/synthetic/figures/` and are
+stamped SYNTHETIC; they show what each step does, not what happened in 2026.
 
 ## Running on real data
 
@@ -94,7 +100,7 @@ create the grassland mask.
 |-----------------------------------|----------------------------------------------|---|
 | rainfall and water balance        | internet                                     | **yes**, MeteoSwiss Open Data |
 | grassland mask                    | parcel polygons per year                     | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/); earlier years are not open. With one year, every field is kept. |
-| grassland condition               | the grassland mask + an Earth Engine project | **yes**, free for noncommercial use |
+| grassland condition               | the grassland mask + an Earth Engine project | **yes**, free for noncommercial use ([terms](https://earthengine.google.com/terms), [quotas](https://developers.google.com/earth-engine/guides/noncommercial_tiers)) |
 | mowing scores (cutting frequency) | hand labels                                  | **no**; make your own with the labelling widget |
 
 The parcel data used here came from the Canton of St. Gallen and is not
