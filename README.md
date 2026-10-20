@@ -83,11 +83,12 @@ NDMI of intensive meadows at Linthebene, 2026 against 2019–2025. Bottom: one
 meadow, two summers. Each sawtooth is a harvest; in 2026 the grass stops
 regrowing after the July cut.*
 
-<p align="center"><img src="docs/figures/real/field_anomaly_rheintal.png" alt="Per-field NDMI anomaly in the St. Galler Rheintal, 2026" width="600"></p>
+![Per-field NDMI anomaly in 2026: St. Galler Rheintal, Linthebene and Alpstein / Churfirsten](docs/figures/real/field_anomaly_3sites.jpg)
 
-*St. Galler Rheintal: NDMI of each meadow from May to August 2026 against its
-own 2019–2025 median, in standard deviations; red is drier than usual. From the
-August 2026 presentation.*
+*NDMI of each grassland parcel in 2026 against its own 2019–2025 median, in
+standard deviations; red is drier than usual. From top: St. Galler Rheintal,
+Linthebene, Alpstein / Churfirsten. Window May–August; at Alpstein, mid-July to
+mid-September.*
 
 More figures: [docs/gallery.md](docs/gallery.md). A step-by-step walkthrough:
 [notebooks/walkthrough.ipynb](notebooks/walkthrough.ipynb).
