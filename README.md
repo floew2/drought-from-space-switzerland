@@ -76,21 +76,18 @@ From May to September, the meadows' moisture index stayed 23–29 % below its
   in 2026 (15 of 22 fields). On this sample that is an indication, not yet a
   significant result.
 
-![Cumulative rainfall at St. Gallen and grassland NDMI at Linthebene, 2026 against the baselines](docs/figures/real/overview.png)
+![Precipitation at St. Gallen, grassland NDMI at Linthebene, and one meadow's mowing in 2025 against 2026](docs/figures/real/overview.png)
 
-*Left: cumulative rainfall at St. Gallen, 2026 against 1991–2020. Right: NDMI of
-intensive meadows at Linthebene, 2026 against 2019–2025.*
+*Top left: cumulative rainfall at St. Gallen, 2026 against 1991–2020. Top right:
+NDMI of intensive meadows at Linthebene, 2026 against 2019–2025. Bottom: one
+meadow, two summers. Each sawtooth is a harvest; in 2026 the grass stops
+regrowing after the July cut.*
 
 <p align="center"><img src="docs/figures/real/field_anomaly_rheintal.png" alt="Per-field NDMI anomaly in the St. Galler Rheintal, 2026" width="600"></p>
 
 *St. Galler Rheintal: NDMI of each meadow from May to August 2026 against its
 own 2019–2025 median, in standard deviations; red is drier than usual. From the
 August 2026 presentation.*
-
-![One meadow, 2025 against 2026: NDMI and NDVI with detected cuts](docs/figures/real/mowing_one_field_2025_2026.png)
-
-*One meadow, two summers. Each sawtooth is a harvest; in 2026 the grass stops
-regrowing after the July cut.*
 
 More figures: [docs/gallery.md](docs/gallery.md). A step-by-step walkthrough:
 [notebooks/walkthrough.ipynb](notebooks/walkthrough.ipynb).
