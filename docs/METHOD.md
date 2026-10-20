@@ -18,8 +18,8 @@ and how to run the code, see the [README](../README.md).
 
 How hard did the 2026 drought hit grassland in the Canton of St. Gallen, and
 did farmers stop mowing earlier? Two valley-floor grassland areas are analysed,
-Linthebene and the St. Galler Rheintal, plus one alpine summering area
-(Alpstein) for context.
+Linthebene and the St. Galler Rheintal, plus the alpine summering area of
+the Alpstein.
 
 | input | what | used for |
 |---|---|---|
@@ -49,8 +49,8 @@ of what the sensor records here comes from inside one kind of grassland?*
 A field is analysed only if it was grassland **of the same management type**
 (intensive or extensive) in every year from 2017 to 2025. Outlines are redrawn,
 split and merged between yearly deliveries, so fields are matched by **area
-overlap** (≥ 80 %), not by ID or centroid. Centroid matching kept 43 % of
-fields; overlap matching keeps 81 %.
+overlap** (≥ 80 %), not by ID or centroid. On the same parcels, centroid
+matching kept 43 % of fields and overlap matching 86 %.
 
 ```
  66,843  grassland parcels ≥ 0.05 ha in 2025
@@ -83,9 +83,8 @@ or two of the edge. This is why the mask uses the native 10 m grid, not 20 m.
 
 A pixel does not see a sharp 10 × 10 m square: it also draws signal from
 around it. Purity is therefore defined on the sensor's **response**, not on
-area. Parcels are rasterised at 2.5 m and convolved with a model of the
-response, and each 10 m cell gets the share of its signal that comes from inside
-the right fields.
+area. Parcels are rasterised at 2.5 m and convolved with the response; each
+10 m cell gets the share of its signal from inside the right fields.
 
 ![Box convolved with Gaussian optics: FWHM 12.7 m](figures/model/psf.png)
 
@@ -100,9 +99,8 @@ the system MTF (modulation transfer function) at the Nyquist frequency:
 | σ of the Gaussian | 4.35 m | from MTF(f) = exp(−2π²σ²f²) |
 | width of the response | 12.7 m (FWHM) | box ⊛ Gaussian, measured numerically |
 
-A test measures the width the code actually applies, so the implementation
-cannot drift from this derivation. The model is nadir-only and isotropic, and
-real optics are not exactly Gaussian.
+A test checks that the code applies exactly this width. The model is
+nadir-only and isotropic; real optics are not exactly Gaussian.
 
 ### 2.4 What the threshold costs
 
@@ -115,8 +113,7 @@ small extensive meadows:
 across. From left: Sentinel-2 false colour, the field outlines, and purity at
 three thresholds (white pure, grey mixed, black discarded). The percentages are
 retained area against field area: above 100 % at a low threshold, the response
-reaches past the fields. Current mask, run of 17 October 2026
-(`drought ee rgb`, then `drought mask overview`).*
+reaches past the fields. Run of 17 October 2026.*
 
 ![Observed area against polygon area, by purity threshold](figures/real/area_check_all.png)
 
@@ -126,7 +123,7 @@ reaches past the fields. Current mask, run of 17 October 2026
 | extensive | 3.62 | 0.45 |
 
 The ratio at purity > 0 **must exceed 1**, because the response reaches past
-every field boundary. This invariant caught the worst bug of the project
+every field boundary. This check caught the worst bug of the project
 ([§6](#6-bugs-found-by-checks), bug 1), and the demo enforces it.
 
 ### 2.5 Is the threshold a lever on the answer?
@@ -144,9 +141,9 @@ anomaly against 2019–2025, by threshold:
 The anomaly is negative at every threshold, and grows as the threshold
 tightens: mixed pixels dilute the drought signal, most of all on small
 extensive fields. At 0.90 it is within 0.7–3.3 % of the strictest value, so the
-reported signal is slightly understated, never inflated. (At Alpstein, which of
-the two meadow types shows the larger anomaly flips near a threshold of 0.5, so
-the two are not compared there.)
+reported signal is slightly understated, never inflated, while going to 0.95
+would cost about a fifth of the extensive pixels. (At Alpstein, the ranking of the
+two meadow types flips near 0.5, so they are not compared there.)
 
 ---
 
@@ -169,7 +166,7 @@ mean index over pixels with purity ≥ 0.90. Before any curve is drawn:
 ### 3.2 The season integral
 
 The headline is the area under the NDMI curve from 1 May to 30 September
-(DOY 121–273), relative to the 2019–2025 median. Every year is integrated over
+(day of year, DOY, 121–273), relative to the 2019–2025 median. Every year is integrated over
 exactly the days **all** years observed (103–114 of 153), so a cloudier year is
 not penalised for missing data. Gaps longer than 30 days are left empty rather
 than interpolated.
@@ -199,6 +196,15 @@ groundwater, is consistently milder.
 half a point and Linthebene extensive by 2.8 points; 2026 still ranks last
 everywhere. Ending the window at DOY 245 instead of 273 changes the integrals
 by about 3 points or less.
+
+### 3.5 Per-field anomaly maps
+
+![Per-field NDMI anomaly in 2026: St. Galler Rheintal, Linthebene and Alpstein / Churfirsten](figures/real/field_anomaly_3sites.jpg)
+
+Each year becomes one median NDMI composite over the window (May–August; at
+Alpstein, after snowmelt, 15 July – 15 September). 2026 is a z-score against
+the seven baseline composites, averaged per parcel over pixels with purity
+≥ 0.90.
 
 ---
 
@@ -266,8 +272,7 @@ agreement with an expert reading of the signal, not with a farm diary.
 A penalised changepoint fit was built as the principled alternative and scored
 on the same labels. It over-segments and reaches F1 0.805, so it was rejected.
 It stays in the code (`changepoint.py`). With 143 labelled field-years from one
-site, a transparent, frozen rule set is the more defensible tool than a learned
-model.
+site, a transparent, frozen rule set is more defensible than a learned model.
 
 ### 5.5 Which cut metric can compare years
 
@@ -278,10 +283,10 @@ and farm effects.
 
 ### 5.6 The drought recovery fools the detector
 
-On synthetic data the frozen rules had shown a weak spot: a deep drought trough
-followed by a steep recovery looks exactly like a cut followed by regrowth. The
-real labels confirm it. Of the detector's 34 false cuts in 2026, 23 fall between
-DOY 220 and 260, the trough and the recovery.
+On synthetic data, the frozen rules showed a weak spot: a deep drought trough
+and steep recovery look just like a cut and regrowth. The real labels
+confirm it: 23 of the detector's 34 false cuts in 2026 fall between DOY 220
+and 260, the trough and the recovery.
 
 | DOY | 180–200 | 200–220 | 220–240 | 240–260 | 260–280 |
 |---|---|---|---|---|---|
@@ -294,9 +299,8 @@ and in at least one earlier year:
 - the last cut came a median **11.9 days earlier** in 2026;
 - 15 of the 22 fields stopped sooner.
 
-Most fields have only one earlier year to compare with, and a sign test gives
-p ≈ 0.13. The direction agrees with the drought, but on this sample it is an
-indication, not a significant result.
+Most fields have only one earlier year, and a sign test gives p ≈ 0.13: the
+direction agrees with the drought, but the result is not yet significant.
 
 ### 5.7 Elevation
 
@@ -307,9 +311,8 @@ Cutting frequency falls with altitude, so every field carries its elevation
 
 ## 6. Bugs found by checks
 
-Each bug below was caught by a check that must hold whatever the data, or by a
-contradiction in the output, and the code-level ones have a regression test in
-`tests/` that the old logic fails.
+Each bug was caught by a check that must hold whatever the data, or by a
+contradiction in the output; the code-level ones have a regression test.
 
 | # | bug | caught by |
 |---|---|---|
@@ -328,13 +331,11 @@ contradiction in the output, and the code-level ones have a regression test in
 | 13 | a summary divided clipped pixels by unclipped polygons | area ratios below 1 again |
 | 14 | the 0.05 ha floor also failed stable fields in past years | the same synthetic check as #11 |
 
-**How bug 6 became a guarantee.** Every data file carries a provenance record:
-the settings and mask that produced it, and hashes of both. Loading refuses a
-file whose record does not match the current configuration, and names the
-setting that changed. Earth Engine exports are named with a hash of their
-settings and the mask, and the uploaded mask asset is compared with the local
-file cell by cell before any export runs. `results.json` refuses to load while
-any section is stale.
+**How bug 6 became a guarantee.** Every data file carries a provenance record
+of the settings and mask that produced it. Loading refuses a mismatch and names
+the setting that changed. Exports carry a hash of their settings and mask, the
+uploaded mask asset is checked cell by cell against the local file, and
+`results.json` refuses to load while any section is stale.
 
 ---
 
@@ -348,8 +349,7 @@ calibrated so that the same code reproduces the real headline numbers. Matching
 a calibrated number shows only that the pipeline is wired correctly. The area
 ratios, which were not targeted, land close to the real ones.
 
-What synthetic data cannot do: show that the drought happened. Every result
-above stands on the real data.
+What synthetic data cannot do is show that the drought happened.
 
 ---
 
