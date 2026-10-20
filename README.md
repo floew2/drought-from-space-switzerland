@@ -229,3 +229,7 @@ Code: MIT ([LICENSE](LICENSE)). Contains modified Copernicus Sentinel data
 2023). Station data: MeteoSwiss Open Data (CC BY 4.0), *Quelle: MeteoSchweiz*.
 Elevation: CGIAR-CSI SRTM 90 m. Field geometries: Nutzungsflächen, Kanton
 St. Gallen, not redistributed.
+
+## Author
+
+Fabian Löw · [GitHub](https://github.com/floew2)

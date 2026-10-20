@@ -23,7 +23,7 @@ parse:
 sphinx:
   extra_extensions: [sphinxcontrib.mermaid]
   config:
-    html_show_copyright: false
+    html_show_copyright: true
     suppress_warnings: ["myst.header"]
     myst_heading_anchors: 4            # GitHub-style anchors, so the same links work on GitHub and here
     myst_fence_as_directive: [mermaid] # ```mermaid blocks render as diagrams, as on GitHub
