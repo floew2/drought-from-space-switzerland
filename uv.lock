@@ -813,15 +813,19 @@ ee = [
     { name = "earthengine-api" },
 ]
 notebook = [
+    { name = "ipykernel" },
     { name = "jupyterlab" },
+    { name = "nbclient" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "earthengine-api", marker = "extra == 'ee'", specifier = ">=1.0" },
     { name = "geopandas", specifier = ">=0.14" },
+    { name = "ipykernel", marker = "extra == 'notebook'", specifier = ">=6" },
     { name = "jupyterlab", marker = "extra == 'notebook'", specifier = ">=4" },
     { name = "matplotlib", specifier = ">=3.8" },
+    { name = "nbclient", marker = "extra == 'notebook'", specifier = ">=0.10" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "pillow", specifier = ">=10" },

@@ -4,14 +4,13 @@
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.13-blue)
 ![licence](https://img.shields.io/badge/licence-MIT-green)
 
-In summer 2026, Switzerland was hit hard by drought. At St. Gallen, rainfall to
+**Background** In summer 2026, Switzerland was hit hard by drought. At St. Gallen, rainfall to
 mid-October reached only 61 % of the long-term median, the driest such period
 in 31 years. Lake levels fell, meadows turned brown, and farmers reported fewer
 grass cuts and shortages of winter feed. This project looks at the drought from
 space, using free and open satellite data (Copernicus Sentinel-2, processed in
 Google Earth Engine) together with open weather-station records. Its focus is
-agricultural land, specifically grassland: how much the meadows suffered, when
-the damage set in, and whether farmers stopped mowing earlier than usual.
+agricultural land in St. Gallen. A secondary focus is ...
 
 ![St. Galler Rheintal near Altstätten: Sentinel-2 true colour, 2019–2025 median against 2026, 15 June – 31 July](docs/figures/real/rheintal_s2_truecolour.jpg)
 
@@ -19,31 +18,37 @@ the damage set in, and whether farmers stopped mowing earlier than usual.
 Left: median of 2019–2025. Right: 2026, same stretch. The meadows browned field
 by field.*
 
-**Data and method.** Sentinel-2 imagery at 10 m (2019–2026), cloud-masked with
-Cloud Score+, is combined with the cantonal agricultural parcel map and daily
-MeteoSwiss station data. Swiss meadows are small, so most 10 m pixels touch a
-field edge and mix grass with roads, hedges or crops. Each pixel's purity is
-therefore modelled from the sensor's point-spread function, a 10 m detector box
+**Data and method.** The assessment of drought impact is based on multi-temporal
+(time series) satellite images. A baseline before the current drought year
+(2019-2025) is compared with current image in 2026.
+Sentinel-2 imagery at 10 m ground sampling distance (GSD), cloud-masked with
+Cloud Score+, is combined with the cantonal agricultural parcel maps and daily
+MeteoSwiss station data. There is a caveat: Swiss meadows are small, so most of
+the 10 m pixels touch a
+field edge and mix grass with roads, hedges or crops. Due to this heterogeneity of
+the agricultural landscape, the pixel signal is "contaminated" with signal from the
+adjacent area. Hence, before the analysis of the drought impact, each pixel's purity is
+modelled from the sensor's point-spread function (PSF), a 10 m detector box
 convolved with Gaussian optics (12.7 m wide at half maximum) derived from ESA's
 MTF specification. Only pixels that draw at least 90 % of their signal from
-inside a meadow are used. Their NDMI, an index sensitive to canopy water, is
-tracked through each season and compared with 2019–2025. Mowing is detected per
-field with a transparent rule set, validated against 143 hand-labelled
-field-years. Details: [docs/METHOD.md](docs/METHOD.md).
+inside a meadow are used to assess the drought impact:
 
-**Scope**
+1) **Rainfall and water balance** (using MeteoSwiss Open Data)
+
+1) **Grassland condition**: Their NDMI, a vegetation index that is sensitive to canopy water, is
+tracked through each season and compared with the 2019–2025 baseline.
+
+2) **Mowing scores (cutting frequency)** is detected per field with a transparent rule set, validated against 143 hand-labelled field-years. Details: [docs/METHOD.md](docs/METHOD.md).
+
+The grassland mask to model PSF is created based on Cantonal vector data of agricultural parcels from yyyy to yyyy, filtered to meadows based on the official LNF codes.
+
+**Summary of scope**
 - **Where:** Canton of St. Gallen, Switzerland: Linthebene and the St. Galler Rheintal.
-- **When:** the 2026 growing season against 2019–2025; rainfall against 1991–2020.
-- **What:** grassland condition (NDMI), mowing, rainfall and water balance.
+- **When:** the 2026 growing season against 2019–2025 baseline; rainfall against 1991–2020 baseline.
+- **What:** rainfall and water balance, grassland vegetation condition (NDMI), mowing (cutting frequency).
 - **Not covered:** yield in tonnes, crops other than grassland, forecasting.
 
-## Results
-
-| season NDMI integral, May–September | Linthebene | St. Galler Rheintal |
-|---|---|---|
-| intensive meadows | **−27 %** | **−23 %** |
-| extensive meadows | **−29 %** | **−28 %** |
-| rank among 2019–2026 | last of 8 | last of 8 |
+## Some preliminary results
 
 - Spring was normal. The meadows collapsed through July, bottomed out in
   mid-August and recovered from early September.
@@ -65,7 +70,7 @@ More figures: [docs/gallery.md](docs/gallery.md). A step-by-step walkthrough:
 
 ## Quick start (synthetic data)
 
-No account and no download needed:
+No Google Earth Engine account and no download of any data is needed to run the tools:
 
 ```bash
 git clone https://github.com/floew2/drought-from-space-switzerland.git
@@ -81,12 +86,16 @@ real one and fails if a target or a physical check is missed. Its figures go to
 
 ## Running on real data
 
-| step | needs | open? |
-|---|---|---|
-| rainfall and water balance | internet | **yes**, MeteoSwiss Open Data |
-| grassland mask | parcel polygons per year | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/); earlier years are not open. With one year, every field is kept. |
-| grassland condition | the mask + an Earth Engine project | **yes**, free for noncommercial use |
-| mowing scores | hand labels | **no**; make your own with the labelling widget |
+To run the tool on real satellite data, a Google Earth Engine account is needed
+plus a set of vector parcel data from Canton St. Gallen over several years to
+create the grassland mask.
+
+| step                              | needs                                        | open? |
+|-----------------------------------|----------------------------------------------|---|
+| rainfall and water balance        | internet                                     | **yes**, MeteoSwiss Open Data |
+| grassland mask                    | parcel polygons per year                     | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/); earlier years are not open. With one year, every field is kept. |
+| grassland condition               | the grassland mask + an Earth Engine project | **yes**, free for noncommercial use |
+| mowing scores (cutting frequency) | hand labels                                  | **no**; make your own with the labelling widget |
 
 The parcel data used here came from the Canton of St. Gallen and is not
 redistributed. Nothing in `data/` is committed.
