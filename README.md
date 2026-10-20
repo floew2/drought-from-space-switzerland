@@ -49,12 +49,13 @@ The grassland mask is built from the cantonal vector data of agricultural
 parcels from 2017 to 2025, filtered to meadows by their official land-use (LNF)
 codes. Details: [docs/METHOD.md](docs/METHOD.md).
 
-![Linthebene: Sentinel-2 imagery, field outlines, and pixel purity at three thresholds](docs/figures/real/mixed_pixels_linthebene.png)
+![Three landscapes: Sentinel-2 imagery, field outlines, and pixel purity at three thresholds](docs/figures/real/mask_overview_intensive.png)
 
-*Why pixel purity matters, 500 m at Linthebene. From left: Sentinel-2 false
-colour, the field outlines, and purity at three thresholds (white pure, grey
-mixed, black discarded). At purity ≥ 0 the pixels cover 113 % of the field area,
-because each pixel also sees past the field edge; at ≥ 0.9, 89 % remains.*
+*Why pixel purity matters: intensive grassland at Linthebene, in the Rheintal
+and at Alpstein, 500 m across. From left: Sentinel-2 false colour, the field
+outlines, and purity at three thresholds (white pure, grey mixed, black
+discarded). At purity ≥ 0 the pixels cover more than the field area, because
+each pixel also sees past the field edge; at ≥ 0.9, 79–91 % of it remains.*
 
 **Summary of scope**
 - **Where:** Canton of St. Gallen, Switzerland: Linthebene and the St. Galler Rheintal.
@@ -80,12 +81,16 @@ From May to September, the meadows' moisture index stayed 23–29 % below its
 *Left: cumulative rainfall at St. Gallen, 2026 against 1991–2020. Right: NDMI of
 intensive meadows at Linthebene, 2026 against 2019–2025.*
 
-![Per-field NDMI anomaly in the Rheintal, and one meadow's mowing in 2025 against 2026](docs/figures/real/field_anomaly_and_mowing.png)
+![Per-field NDMI anomaly in the St. Galler Rheintal, 2026](docs/figures/real/field_anomaly_rheintal.png)
 
-*Left: St. Galler Rheintal, NDMI of each meadow from May to August 2026 against
-its own 2019–2025 median, in standard deviations; red is drier than usual.
-Right: one meadow, two summers. Each sawtooth is a harvest; in 2026 the grass
-stops regrowing after the July cut. Both from the August 2026 presentation.*
+*St. Galler Rheintal: NDMI of each meadow from May to August 2026 against its
+own 2019–2025 median, in standard deviations; red is drier than usual. From the
+August 2026 presentation.*
+
+![One meadow, 2025 against 2026: NDMI and NDVI with detected cuts](docs/figures/real/mowing_one_field_2025_2026.png)
+
+*One meadow, two summers. Each sawtooth is a harvest; in 2026 the grass stops
+regrowing after the July cut.*
 
 More figures: [docs/gallery.md](docs/gallery.md). A step-by-step walkthrough:
 [notebooks/walkthrough.ipynb](notebooks/walkthrough.ipynb).
