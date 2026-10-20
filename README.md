@@ -194,14 +194,17 @@ All settings live in `config.yaml`; `drought --help` lists every command.
 ## Repository layout
 
 ```
-config.yaml                  every setting
-src/drought/                 the analysis: mask, trajectory, precip, detect, evaluate, provenance
-src/drought/engine/          Earth Engine exports, run from Python
-src/drought/synthetic/       synthetic stand-ins for every input
-notebooks/walkthrough.ipynb  the pipeline step by step
-docs/METHOD.md               how and why
-docs/gallery.md              figures from the real data
-tests/                       pytest; CI runs lint, tests, the demo and the notebook
+drought-from-space-switzerland/
+├── config.yaml                every setting
+├── src/drought/               the analysis: mask, trajectory, precip, detect, evaluate, provenance
+│   ├── engine/                Earth Engine exports, run from Python
+│   └── synthetic/             synthetic stand-ins for every input
+├── notebooks/
+│   └── walkthrough.ipynb      the pipeline step by step
+├── docs/
+│   ├── METHOD.md              how and why
+│   └── gallery.md             figures from the real data
+└── tests/                     pytest; CI runs lint, tests, the demo and the notebook
 ```
 
 ## Data and licence
