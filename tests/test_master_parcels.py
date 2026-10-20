@@ -1,4 +1,4 @@
-"""The master parcel set: overlap matching and the sliver floor (METHOD §6, #11)."""
+"""The master parcel set: overlap matching and the sliver floor."""
 
 from __future__ import annotations
 

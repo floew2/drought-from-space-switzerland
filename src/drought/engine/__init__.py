@@ -19,7 +19,7 @@ Each export first checks that the mask asset in Earth Engine IS the local mask:
 and, only if they agree, stores the mask's content hash on the asset; an
 export refuses to start if the stamp differs. Each download is registered with
 its provenance record at once, so a stale or foreign export can never reach
-the analysis (METHOD §6, bug 6).
+the analysis.
 
 Needs the optional dependency: `uv sync --extra ee`, then once
 `earthengine authenticate`. The project goes into config.local.yaml (not

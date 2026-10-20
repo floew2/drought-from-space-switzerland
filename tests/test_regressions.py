@@ -1,4 +1,4 @@
-"""One test per bug that actually happened (METHOD §6).
+"""One test per bug that actually happened.
 
 Where it can, each test also runs the OLD logic and shows that it fails the
 same check. That is the evidence the check would have caught the bug, rather
@@ -35,7 +35,7 @@ def _fields(n=40, seed=1):
 
 
 # --------------------------------------------------------------------------- #
-# Bug 1: persistence applied per cell zeroed the halo                (METHOD §6)
+# Bug 1: persistence applied per cell zeroed the halo
 # --------------------------------------------------------------------------- #
 def test_area_at_purity_zero_exceeds_polygon_area():
     """The response reaches past every boundary, so the ratio at > 0 must exceed 1.
@@ -60,7 +60,7 @@ def test_area_at_purity_zero_exceeds_polygon_area():
 
 
 # --------------------------------------------------------------------------- #
-# Bug 3: overlap matching silently dropped rows for a subset          (METHOD §6)
+# Bug 3: overlap matching silently dropped rows for a subset
 # --------------------------------------------------------------------------- #
 def _frames():
     geoms = _fields(20)

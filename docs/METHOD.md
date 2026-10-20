@@ -8,9 +8,8 @@ and how to run the code, see the [README](../README.md).
 3. [Grassland condition](#3-grassland-condition)
 4. [Precipitation and water balance](#4-precipitation-and-water-balance)
 5. [Cut detection](#5-cut-detection)
-6. [Bugs found by checks](#6-bugs-found-by-checks)
-7. [Synthetic data](#7-synthetic-data)
-8. [Limitations and open items](#8-limitations-and-open-items)
+6. [Synthetic data](#6-synthetic-data)
+7. [Limitations and open items](#7-limitations-and-open-items)
 
 ---
 
@@ -123,8 +122,8 @@ reaches past the fields. Run of 17 October 2026.*
 | extensive | 3.62 | 0.45 |
 
 The ratio at purity > 0 **must exceed 1**, because the response reaches past
-every field boundary. This check caught the worst bug of the project
-([§6](#6-bugs-found-by-checks), bug 1), and the demo enforces it.
+every field boundary. This check caught the worst bug of the project,
+and the demo enforces it.
 
 ### 2.5 Is the threshold a lever on the answer?
 
@@ -309,37 +308,7 @@ Cutting frequency falls with altitude, so every field carries its elevation
 
 ---
 
-## 6. Bugs found by checks
-
-Each bug was caught by a check that must hold whatever the data, or by a
-contradiction in the output; the code-level ones have a regression test.
-
-| # | bug | caught by |
-|---|---|---|
-| 1 | persistence multiplied into the raster, zeroing the halo around fields | observed area at purity > 0 below the polygon area, which is impossible |
-| 2 | fields matched between years by centroid | 56 % apparent land-use change, far too much |
-| 3 | overlap matching dropped rows on a subset | per-category results contradicting the all-grassland case |
-| 4 | one bad geometry made the overlay 100× slower | a three-hour run |
-| 5 | a figure rebuilt the whole parcel set for four sums | eight overlays for one caption |
-| 6 | results outlived the settings that made them | numbers from a superseded mask; now refused by provenance records |
-| 7 | mask built with a different response model than documented | comparing the code with the derivation; now a test measures the applied width |
-| 8 | intensive and extensive meadows pooled in one code copy | output file names that could not match |
-| 9 | tiled purity differed from single-pass purity | a test that they must be equal |
-| 10 | "purity ≥ 1" selected nothing | an empty panel (float32 rounding) |
-| 11 | a 0.25 ha size filter also failed stable fields in past years | synthetic fields known to be stable being dropped |
-| 12 | geometry repair silently halved figure-eight outlines | a test that repair keeps area |
-| 13 | a summary divided clipped pixels by unclipped polygons | area ratios below 1 again |
-| 14 | the 0.05 ha floor also failed stable fields in past years | the same synthetic check as #11 |
-
-**How bug 6 became a guarantee.** Every data file carries a provenance record
-of the settings and mask that produced it. Loading refuses a mismatch and names
-the setting that changed. Exports carry a hash of their settings and mask, the
-uploaded mask asset is checked cell by cell against the local file, and
-`results.json` refuses to load while any section is stale.
-
----
-
-## 7. Synthetic data
+## 6. Synthetic data
 
 The real parcel data cannot be published, so `drought.synthetic` generates
 stand-ins with the same files and schemas: yearly cadastres with redrawn, split
@@ -353,7 +322,7 @@ What synthetic data cannot do is show that the drought happened.
 
 ---
 
-## 8. Limitations and open items
+## 7. Limitations and open items
 
 - **The MTF value.** ESA specifies 0.15–0.30; 0.25 is assumed. Rebuilding the
   synthetic mask at 0.15 and 0.30 (`--set mask.psf_mtf_nyquist=…`) would show

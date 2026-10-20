@@ -407,7 +407,7 @@ def deliveries(df: pd.DataFrame, rng: np.random.Generator):
                 # Any field can be split, small ones included, and a part may
                 # fall below the 0.05 ha sliver floor. The floor applies to the
                 # current delivery only, so the parent keeps its history.
-                # (A floor on past deliveries failed such fields — METHOD §6,
+                # (A floor on past deliveries failed such fields —
                 # #11 at 0.25 ha, #14 at 0.05 ha.)
                 t = rng.uniform(0.3, 0.7) * r.w
                 items.append((r.site, box(r.x, r.y, r.x + t, r.y + r.h), k))

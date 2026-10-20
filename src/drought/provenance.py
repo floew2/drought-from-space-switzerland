@@ -1,6 +1,6 @@
 """Provenance: every input and output carries a record of what produced it.
 
-The failure this exists for (METHOD §6, bug 6): files repeatedly outlived the
+The failure this exists for: files repeatedly outlived the
 method that made them. A CSV proposed for publication had the right schema
 but the wrong vintage. Its management categories were ones the pipeline no
 longer emits, its 2026 series ended before the result it was meant to support,

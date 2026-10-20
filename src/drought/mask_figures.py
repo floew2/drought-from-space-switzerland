@@ -2,7 +2,7 @@
 
 Kept apart from the mask computation so that building the mask never needs
 matplotlib, and a figure never rebuilds the parcel set to compute numbers it
-could be handed (METHOD §6, bug 5).
+could be handed.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def figure_purity_map(site: str, group: str = "mown", out: str | Path | None = N
 
     Deliberately not thresholded: the gradient is the point. The threshold is
     only a marker on the colour bar, so a reader sees where it sits in the
-    distribution. Real-data maps are not publishable (METHOD §7, gallery rules).
+    distribution. Real-data maps are not publishable (docs/figures/real/README.md).
 
     Args:
         site: Site key in config.yaml.
@@ -242,7 +242,7 @@ def figure_purity_explainer(site: str = "linthebene", group: str = "intensive",
     A: the same patch at several thresholds, so the fields visibly erode inward.
     B: observed / mapped area against the threshold, per category. Pass `areas`
     (the four polygon totals `build_mask` prints) so the figure never rebuilds the
-    parcel set for four numbers (METHOD §6, bug 5).
+    parcel set for four numbers.
 
     Args:
         site: Site key for panel A.

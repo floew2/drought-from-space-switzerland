@@ -1,4 +1,4 @@
-"""Stale files are refused, and the refusal names what is stale (METHOD §6, bug 6).
+"""Stale files are refused, and the refusal names what is stale.
 
 The worked example from the project's history: a trajectory export with the
 right schema but the wrong vintage, carrying management categories (mown /

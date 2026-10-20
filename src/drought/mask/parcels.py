@@ -277,7 +277,7 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
     applies to the CURRENT delivery only. In a past delivery, a polygon of any
     size can only add to the coverage a current field is credited with, so
     dropping it can only fail a stable field whose outline was redrawn or split
-    below the floor that year (METHOD §6, #11 and #14). Whether a field is large
+    below the floor that year. Whether a field is large
     enough for Sentinel-2 is left to pixel purity.
 
     Args:

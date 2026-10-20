@@ -20,7 +20,7 @@ from __future__ import annotations
 
 # --- master parcel set (provenance: master) ----------------------------------
 # Measured 2026-10-14: no size filter, the 0.05 ha sliver floor on the 2025
-# delivery only (METHOD §2.1, §6 #14). The run with the 0.25 ha filter on every
+# delivery only (METHOD §2.1). The run with the 0.25 ha filter on every
 # delivery (#11) had 40,205 / 34,586 / 80,850 ha.
 FUNNEL = {
     "grassland_2025": 66_843,     # grassland parcels >= 0.05 ha in 2025
