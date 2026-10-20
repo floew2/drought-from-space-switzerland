@@ -1,9 +1,11 @@
-# Reading a Drought from Space with Free & Open Satellite Data
-## Switzerland 2026
+# Reading a Drought from Space with Free & Open Satellite Data: Switzerland 2026
 
 [![ci](https://github.com/floew2/drought-from-space-switzerland/actions/workflows/ci.yml/badge.svg)](https://github.com/floew2/drought-from-space-switzerland/actions/workflows/ci.yml)
 ![python](https://img.shields.io/badge/python-3.11%20%7C%203.13-blue)
 ![licence](https://img.shields.io/badge/licence-MIT-green)
+
+**Built with** Python · GeoPandas · Shapely · rasterio · NumPy · pandas · SciPy ·
+Matplotlib · Google Earth Engine Python API · pytest · GitHub Actions
 
 **Background.** In summer 2026, Switzerland was hit hard by drought. At St. Gallen, rainfall to
 mid-October reached only 61 % of the long-term median, the driest such period
@@ -12,10 +14,12 @@ many farms had to feed their winter reserves in summer. This project looks at
 the drought from space, using free and open satellite data
 ([Copernicus Sentinel-2](https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-2),
 processed in [Google Earth Engine](https://earthengine.google.com/)) together
-with open weather-station records. Its focus is three agricultural landscapes - Linthebene, in the Rheintal
-and at Alpstein - in St. Gallen, specifically under grassland management.
-A secondary focus is making the drought visible: browning across the Swiss Plateau,
-receding shorelines on Lake Constance, and meadows browning field by field in the Rheintal.
+with open weather-station records. Its focus is grassland in three landscapes of
+the canton of St. Gallen: the Linthebene, the St. Galler Rheintal (both valley
+floors) and the Alpstein (a summering area). A secondary focus is making the
+drought visible, field by field; the accompanying presentation also showed
+browning across the Swiss Plateau and receding shorelines on Lake Constance,
+which are not part of this repository.
 
 ![St. Galler Rheintal near Altstätten: Sentinel-2 true colour, 2019–2025 median against 2026, 15 June – 31 July](docs/figures/real/rheintal_s2_truecolour.jpg)
 
@@ -23,36 +27,30 @@ receding shorelines on Lake Constance, and meadows browning field by field in th
 2019–2025, 15 June – 31 July. Right: 15 June – 31 July 2026. The
 meadows browned field by field in summer 2026.*
 
-**Data and method.** The assessment of drought impact is based on multi-temporal
-(time series) satellite images. A baseline before the current drought year
-(2019–2025) is compared with the 2026 season.
-Sentinel-2 imagery at 10 m ground sampling distance (GSD), cloud-masked with
-Cloud Score+, is combined with cantonal agricultural parcel maps. Swiss meadows
-are small: across the canton’s grassland, the median intensive
-meadow covers 0.67 ha and the median extensive meadow just 0.19 ha, only about
-67 and 19 Sentinel-2 pixels at 10 m. Hence, most of the 10 m pixels touch a
-field edge and mix grass with roads, hedges or crops. Due to this heterogeneity of
-the agricultural landscape, the pixel signal is "contaminated" with signal from the
-adjacent area. Hence, before the analysis of the drought impact, each pixel's purity is
-modelled from the sensor's point-spread function (PSF), a 10 m detector box
-convolved with Gaussian optics (12.7 m wide at half maximum) derived from ESA's
-MTF specification. Only pixels that draw at least 90 % of their signal from inside a
-meadow are used to assess the drought impact, which keeps about 80 % of the intensive
-meadow area but only 45 % of the small, irregular extensive meadows. The 90 %
-threshold is a trade-off between monitored area and signal quality.
+**Data and method.** The 2026 season is compared with a 2019–2025 baseline,
+using Sentinel-2 time series at 10 m (cloud-masked with Cloud Score+), the
+cantonal agricultural parcel maps for 2017–2025 (meadows selected by their
+official land-use (LNF) codes) and MeteoSwiss station data. Swiss meadows are
+small: the median intensive meadow covers 0.67 ha and the median extensive one
+just 0.19 ha, only about 67 and 19 pixels. Most pixels therefore touch a field
+edge and mix grass with roads, hedges or crops. To keep that signal out, each
+pixel's purity is modelled from the sensor's point-spread function (PSF): a
+10 m detector box convolved with Gaussian optics, 12.7 m wide at half maximum,
+derived from ESA's MTF specification. Only pixels that draw at least 90 % of
+their signal from inside a meadow are used. That keeps about 80 % of the
+intensive meadow area but only 45 % of the small, irregular extensive meadows;
+the threshold trades monitored area against signal quality.
 
 The analysis has three parts:
 
 1. **Rainfall and water balance**, from MeteoSwiss Open Data.
-2. **Grassland condition:** a vegetation index (NDMI), computed from satellite images, of the pure pixels, a vegetation index
-   sensitive to canopy water, is tracked through each season and compared with
-   the 2019–2025 baseline.
-3. **Mowing (cutting frequency):** cuts are detected per field with a
-   transparent rule set, validated against 143 hand-labelled field-years.
+2. **Grassland condition:** NDMI, a vegetation index sensitive to canopy water,
+   is tracked over the pure pixels through each season and compared with the
+   2019–2025 baseline.
+3. **Mowing:** cuts are detected per field with a transparent rule set,
+   validated against 143 hand-labelled field-years.
 
-The grassland mask is built from the cantonal vector data of agricultural
-parcels from 2017 to 2025, filtered to meadows by their official land-use (LNF)
-codes. Details: [docs/METHOD.md](docs/METHOD.md).
+Details: [docs/METHOD.md](docs/METHOD.md).
 
 ![Three landscapes: Sentinel-2 imagery, field outlines, and pixel purity at three thresholds](docs/figures/real/mask_overview_intensive.png)
 
@@ -62,17 +60,27 @@ outlines, and purity at three thresholds (white pure, grey mixed, black
 discarded). At purity ≥ 0 the pixels cover more than the field area, because
 each pixel also sees past the field edge; at ≥ 0.9, 79–91 % of it remains.*
 
-## Some preliminary results
+## Results
 
 From May to September, the meadows' moisture index stayed 23–29 % below its
-2019–2025 median at both sites, the lowest of the eight years.
+2019–2025 median in the Linthebene and the Rheintal, the lowest of the eight
+years at both. For the Alpstein, a summering area, no season total is reported;
+the maps below show a similarly widespread deficit there.
 
 - Spring was normal. The meadows collapsed through July, bottomed out in
   mid-August and recovered from early September.
 - St. Gallen recorded 690 mm of rain by 12 October against a median of 1,135 mm.
   The water balance P − ET0 stood at −74 mm against a median of +494 mm.
 - From the hand labels, the last cut of the season came a median 12 days earlier
-  in 2026 (15 of 22 fields).
+  in 2026 (15 of 22 fields). With 22 fields, that is not yet statistically
+  significant (sign test p ≈ 0.13).
+- **Mowing detection, validated like a model.** The rules were tuned on 42
+  labelled field-years and then frozen; 78 field-years labelled later serve as a
+  hold-out. On all 136 scorable field-years: precision 0.84, recall 0.90,
+  F1 0.87 (0.90 without 2026). In 2026 precision drops to 0.64: 23 of 34 false
+  detections fall in the late-August recovery, which mimics regrowth after a
+  cut, as the synthetic data had predicted. A changepoint alternative scored
+  F1 0.81 and was rejected.
 
 ![Precipitation at St. Gallen, grassland NDMI at Linthebene, and one meadow's mowing in 2025 against 2026](docs/figures/real/overview.png)
 
@@ -87,6 +95,10 @@ regrowing after the July cut.*
 standard deviations; red is drier than usual. From top: St. Galler Rheintal,
 Linthebene, Alpstein / Churfirsten. Window May–August; at Alpstein, mid-July to
 mid-September.*
+
+**Next steps:** more hand labels for the mowing comparison, to test it with a
+larger sample; validating the mowing detector outside the Linthebene; and
+testing how the purity mask responds across ESA's MTF range.
 
 More figures: [docs/gallery.md](docs/gallery.md). A step-by-step walkthrough:
 [notebooks/walkthrough.ipynb](notebooks/walkthrough.ipynb).
@@ -103,7 +115,7 @@ make demo           # whole pipeline on synthetic data, ~90 s -> output/syntheti
 ```
 
 The synthetic inputs have the same formats as the real ones, so every step of
-the pipeline runs on them. Figures go to `output/synthetic/figures/`and are
+the pipeline runs on them. Figures go to `output/synthetic/figures/` and are
 stamped SYNTHETIC; they show what each step does, not what actually happened in 2026.
 
 ## Running on real data
@@ -133,6 +145,9 @@ flowchart LR
   W["MeteoSwiss"] --> R["precipitation"]
   A & R --> O["figures + results.json"]
 ```
+
+<details>
+<summary><b>Setup and commands</b></summary>
 
 **Setup**
 
@@ -188,6 +203,8 @@ dr.labelling.label_widget(df, "linthebene", ev=dr.detect.detect_all(df), n=20)
 ```
 
 All settings live in `config.yaml`; `drought --help` lists every command.
+
+</details>
 
 ## Repository layout
 
