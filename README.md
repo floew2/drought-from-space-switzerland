@@ -28,8 +28,8 @@ which are not part of this repository.
 meadows browned field by field in summer 2026.*
 
 **Data and method.** The 2026 season is compared with a 2019–2025 baseline,
-using Sentinel-2 time series at 10 m (cloud-masked with Cloud Score+), the
-cantonal agricultural parcel maps for 2017–2025 (meadows selected by their
+using Sentinel-2 time series at 10 m (cloud-masked with Cloud Score+), the current
+cantonal agricultural parcel maps for 2025 (meadows selected by their
 official land-use (LNF) codes) and MeteoSwiss station data. Swiss meadows are
 small: the median intensive meadow covers 0.67 ha and the median extensive one
 just 0.19 ha, only about 67 and 19 pixels. Most pixels therefore touch a field
@@ -127,12 +127,12 @@ create the grassland mask.
 | step                              | needs                                        | open? |
 |-----------------------------------|----------------------------------------------|---|
 | rainfall and water balance        | internet                                     | **yes**, MeteoSwiss Open Data |
-| grassland mask                    | parcel polygons per year                     | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/); earlier years are not open. With one year, every field is kept. |
+| grassland mask                    | parcel polygons per year                     | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/) and was used in this study; earlier years are not open. With one year, every field is kept. |
 | grassland condition               | the grassland mask + an Earth Engine project | **yes**, free for noncommercial use ([terms](https://earthengine.google.com/terms), [quotas](https://developers.google.com/earth-engine/guides/noncommercial_tiers)) |
 | mowing scores (cutting frequency) | hand labels                                  | **no**; make your own with the labelling widget |
 
 The parcel data used here came from the Canton of St. Gallen and is not
-redistributed. Nothing in `data/` is committed.
+redistributed. In this study, freely available data from [geodienste.ch](https://www.geodienste.ch/) was sourced. Nothing in `data/` is committed.
 
 ```mermaid
 flowchart LR
@@ -163,8 +163,7 @@ gee:
   project: <your-ee-project>
 ```
 
-Exports go to your Google Drive and are downloaded from there: no Cloud Storage
-bucket, no billing. Parcel shapefiles go to `data/nutzungen/<year>/`, hand
+Exports go to your Google Drive and are downloaded from there. Parcel shapefiles go to `data/nutzungen/<year>/`, hand
 labels to `data/labels/`.
 
 **Steps**
