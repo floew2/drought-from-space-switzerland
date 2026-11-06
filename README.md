@@ -221,11 +221,18 @@ drought-from-space-switzerland/
 └── tests/                     pytest; CI runs lint, tests, the demo and the notebook
 ```
 
+## Citation
+
+If this work is useful to you, an acknowledgement is appreciated — a link back,
+or a citation if you are publishing. GitHub's "Cite this repository" button in
+the sidebar generates APA and BibTeX from [CITATION.cff](CITATION.cff).
+
 ## Data and licence
 
-Code: MIT ([LICENSE](LICENSE)). Contains modified Copernicus Sentinel data
+Code: MIT ([LICENSE](LICENSE)). Figures and docs derived from MeteoSwiss data:
+CC BY 4.0, *Source: MeteoSwiss*. Contains modified Copernicus Sentinel data
 (2019–2026), processed in Google Earth Engine; Cloud Score+ (Pasquarella et al.
-2023). Station data: MeteoSwiss Open Data (CC BY 4.0), *Quelle: MeteoSchweiz*.
+2023). Station data: MeteoSwiss Open Data (CC BY 4.0).
 Elevation: CGIAR-CSI SRTM 90 m. Field geometries: Nutzungsflächen, Kanton
 St. Gallen, not redistributed.
 
