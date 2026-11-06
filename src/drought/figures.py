@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from .config import CFG, figures_dir
+from .config import CFG, credit, figures_dir
 from .detect import detect_all, detect_parcel_year
 from .metrics import equalised, last_cut, last_cut_paired, late_fraction
 
@@ -42,6 +42,7 @@ def _style(axes, square=False):
 
 def _save(fig, site, name):
     p = figures_dir(site) / f"{name}.png"
+    credit(fig)
     fig.savefig(p, dpi=180, facecolor=fig.get_facecolor())
     print(f"  -> {p}")
     return p

@@ -33,7 +33,7 @@ import requests
 # --------------------------------------------------------------------------- #
 # Configuration — from config.yaml (precip: and project: sections)
 # --------------------------------------------------------------------------- #
-from .config import CFG, figures_dir
+from .config import CFG, credit, figures_dir
 
 STATION_NAME = CFG.precip.station_name
 STATION_ABBR = None              # set e.g. "STG" to skip the lookup
@@ -367,6 +367,7 @@ def main(daily: pd.DataFrame | None = None, abbr: str | None = None,
     axes[-1].set_xlabel("Data: MeteoSchweiz Open Data (SwissMetNet), CC-BY",
                         loc="left", fontsize=7.5, color="#6e7681")
     out = figures_dir("station") / f"precip_{abbr}_{CURRENT_YEAR}.png"
+    credit(fig)
     fig.savefig(out, dpi=200, facecolor=fig.get_facecolor())
     print(f"  -> {out}")
     plt.show()

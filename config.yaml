@@ -11,6 +11,8 @@ project:
   # Baseline for Sentinel-2 work. Contains the 2022 drought summer, so any
   # 2026 anomaly measured against it is conservative — a floor, not a ceiling.
   baseline_years: [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+  # Stamped bottom-right on every saved figure (config.credit).
+  credit: "F. Löw · github.com/floew2/drought-from-space-switzerland"
 
 paths:
   gee: data/gee            # GEE exports, one subfolder per site

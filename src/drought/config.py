@@ -227,6 +227,22 @@ def figures_dir(site: str | None = None) -> Path:
     return p
 
 
+CREDIT_TEXT_KW = dict(x=0.995, y=0.006, ha="right", va="bottom", fontsize=7,
+                      color="#8a8a8a", alpha=0.85)
+
+
+def credit(fig):
+    """Stamp project.credit bottom-right on a figure. Call before every savefig.
+
+    Idempotent: a figure is stamped once however often it is saved.
+    """
+    if getattr(fig, "_credit", None) is None:
+        kw = dict(CREDIT_TEXT_KW)
+        fig._credit = fig.text(kw.pop("x"), kw.pop("y"), str(CFG.project.credit),
+                               transform=fig.transFigure, zorder=1001, **kw)
+    return fig
+
+
 def tables_dir() -> Path:
     p = _base("tables")
     p.mkdir(parents=True, exist_ok=True)

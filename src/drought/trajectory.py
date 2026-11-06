@@ -29,7 +29,7 @@ import pandas as pd
 # --------------------------------------------------------------------------- #
 # Configuration
 # --------------------------------------------------------------------------- #
-from .config import CFG, figures_dir, gee_dir
+from .config import CFG, credit, figures_dir, gee_dir
 
 CSV = None          # set by plot(); or pass a path directly
 
@@ -448,6 +448,7 @@ def make_figure(site: str, regime: str, sub: pd.DataFrame):
     axes[1].set_xlabel(f"Sentinel-2 / Cloud Score+ · {INDEX}\nparcels: Nutzungsflächen",
                        loc="left", fontsize=7, color="#6e7681")
     out = str(figures_dir(site) / f"vi_trajectory_{INDEX}_{regime}.png")
+    credit(fig)
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"  -> {out}")
     plt.close(fig)

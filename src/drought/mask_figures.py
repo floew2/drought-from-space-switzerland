@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .config import mask_path
+from .config import credit, mask_path
 from .mask import GROUPS, PURITY_MIN, RES, master_parcels, psf_caption, psf_params
 from .mask.build import area_table, verify_mask
 from .mask.io import site_bounds_lv95
@@ -156,6 +156,7 @@ def figure_purity_map(site: str, group: str = "mown", out: str | Path | None = N
                   f"{kept:.0f}% of cells are retained.",
                   fontsize=7.5, color="#6e7681")
     out = out or (figures_dir("mask") / f"purity_map_{site}_{group}.png")
+    credit(fig)
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"  -> {out}")
     plt.show()
@@ -226,6 +227,7 @@ def area_check(site: str | None = None,
                   "parcel size and shape index (4.0 = a perfect square).",
                   fontsize=7, color="#6e7681")
     out = out or (figures_dir("mask") / f"area_check_{site or 'all'}.png")
+    credit(fig)
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"\n  -> {out}")
     plt.show()
@@ -415,6 +417,7 @@ def figure_purity_explainer(site: str = "linthebene", group: str = "intensive",
              fontsize=7.5, color="#6e7681", ha="left", va="bottom")
 
     out = out or (figures_dir("mask") / f"purity_explainer_{site}_{group}.png")
+    credit(fig)
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"  -> {out}")
     plt.show()
@@ -735,6 +738,7 @@ def figure_mask_overview(sites: list[str] | None = None,
     fig.tight_layout(rect=[0.004, 0.055, 0.998, 0.958])
     fig.subplots_adjust(hspace=0.06, wspace=0.035)
     out = out or (figures_dir("mask") / f"mask_overview_{group}.png")
+    credit(fig)
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"  -> {out}")
     plt.show()
@@ -871,6 +875,7 @@ def figure_parcel_size(master=None, group: str | None = None, out: str | Path | 
     fig.supxlabel(f"10 m cells in a median field:  {cells}", fontsize=7.5,
                   color="#6e7681")
     out = out or (figures_dir("mask") / "parcel_size.png")
+    credit(fig)
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"\n  -> {out}")
     plt.show()
@@ -1069,6 +1074,7 @@ def figure_psf(out: str | Path | None = None, mtf: float | None = None,
              "slightly wider along-track, and one representative MTF stands "
              "for all bands.", fontsize=7, color="#6e7681")
     out = out or (figures_dir("mask") / "psf.png")
+    credit(fig)
     fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
     print(f"  sigma {sig:.2f} m, FWHM {fwhm:.1f} m  ->  {out}")
     plt.show()
