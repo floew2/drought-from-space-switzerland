@@ -87,12 +87,19 @@ def saved(monkeypatch):
 
 
 def test_entry_points_stamp_credit(tmp_path, saved):
+    import numpy as np
+
     from drought import mask_figures, precip
+    from drought.provenance import register
+    from drought.synthetic import station
 
     mask_figures.figure_psf(out=tmp_path / "psf.png")
     config.activate("synthetic")
     try:
-        daily, abbr, lat = precip.load_local(config.station_dir())
+        # A fresh station series in tmp_path, so the test needs no generated data.
+        for f in station.write(station.generate(np.random.default_rng(11)), tmp_path / "station"):
+            register(f, "station")
+        daily, abbr, lat = precip.load_local(tmp_path / "station")
         precip.main(daily=daily, abbr=abbr, lat=lat, station_label="Synthetic station")
     finally:
         config.activate("real")
