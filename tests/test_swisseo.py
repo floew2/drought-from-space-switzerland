@@ -247,3 +247,44 @@ def test_parcel_id_is_lv95_centroid_and_area():
     # a ring and the field inside it share a centroid; the area tells them apart
     assert make_ids(g) == ["2718050_1226100_19600", "2718050_1226100_400"]
     assert make_ids(g.to_crs(4326)) == make_ids(g)              # any input CRS
+
+
+def test_a_read_cut_off_in_transit_is_retried(world, monkeypatch):
+    from rasterio.errors import RasterioIOError
+
+    from drought.swisseo import store
+    parcels, sess = world
+    monkeypatch.setattr(store.time, "sleep", lambda s: None)
+    real, calls = scene.clear_mask, []
+
+    def flaky(item, win):
+        calls.append(item.id)
+        if len(calls) == 1:
+            raise RasterioIOError("TIFFReadEncodedTile() failed")
+        return real(item, win)
+
+    monkeypatch.setattr(scene, "clear_mask", flaky)
+    files = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
+    assert any("trajectory" in f.name for f in files)
+
+
+def test_a_mosaic_that_keeps_failing_stops_before_any_result(world, monkeypatch):
+    from rasterio.errors import RasterioIOError
+
+    from drought.swisseo import store
+    parcels, sess = world
+    monkeypatch.setattr(store.time, "sleep", lambda s: None)
+    real = scene.clear_mask
+
+    def broken_2020(item, win):
+        if item.id.startswith("2020"):
+            raise RasterioIOError("TIFFReadEncodedTile() failed")
+        return real(item, win)
+
+    monkeypatch.setattr(scene, "clear_mask", broken_2020)
+    assert extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1) == []
+    stored = list((store.path("linthebene", "x").parent).glob("*.tif"))
+    assert len(stored) == 8                              # all but the 2020 mosaic
+    monkeypatch.setattr(scene, "clear_mask", real)       # the network is back
+    files = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
+    assert any("trajectory" in f.name for f in files)

@@ -72,6 +72,10 @@ def read(year: int | None = None) -> gpd.GeoDataFrame:
     p = path(year)
     if not p.exists():
         raise SystemExit(f"{p} not found: run `drought parcels ids` first")
-    g = gpd.read_file(p)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*organizePolygons|.*Simple Geometry"
+                                "|.*winding order")
+        g = gpd.read_file(p)
     g["parcel_id"] = g.parcel_id.astype(str)
     return g

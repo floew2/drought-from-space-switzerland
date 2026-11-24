@@ -265,6 +265,31 @@ def _write(df: pd.DataFrame, path: Path, kind: str) -> Path:
     return path
 
 
+def download(items: dict, workers: int = 4) -> list[str]:
+    """Store every mosaic not yet on disk. Returns the ids that failed."""
+    failed = []
+    for (site, year), its in items.items():
+        todo = [it for it in its if not store.path(site, it.id).exists()]
+        if not todo:
+            continue
+        win = grid.site_window(site)
+
+        def one(it, win=win, site=site):
+            try:
+                store.fetch(it, win, site)
+                return None
+            except Exception as e:          # noqa: BLE001 - reported, run continues
+                print(f"  [!] {site} {it.id}: {type(e).__name__}: {e}")
+                return it.id
+
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+            bad = [r for r in ex.map(one, todo) if r]
+        failed += bad
+        print(f"  {site} {year}: {len(todo) - len(bad)} of {len(todo)} downloaded "
+              f"({len(its) - len(todo)} already on disk)")
+    return failed
+
+
 def run(sites=None, only_years=None, workers: int = 4, dry_run: bool = False,
         session=None, parcels=None) -> list[Path]:
     """Read swissEO for every site and year; write and register the three products.
@@ -292,13 +317,26 @@ def run(sites=None, only_years=None, workers: int = 4, dry_run: bool = False,
     traj_rows, written = [], []
     p_all = parcels
 
-    for site in sites:
-        if dry_run:
+    if dry_run:
+        for site in sites:
             for y in yrs:
                 its = items_for(site, y, session)
                 have = sum(store.path(site, i.id).exists() for i in its)
                 print(f"  {site} {y}: {len(its)} mosaics, {have} already on disk")
-            continue
+        return []
+
+    # 1. Download whatever is not on disk yet. Results are computed only from
+    #    a complete set, so a mosaic that fails stops the run after the others
+    #    are downloaded; running again retries just the missing ones.
+    items = {(s, y): items_for(s, y, session) for s in sites for y in yrs}
+    failed = download(items, workers)
+    if failed:
+        print(f"  {len(failed)} mosaic(s) could not be downloaded, e.g. {failed[:3]}. "
+              "No results written. Run the same command again to retry them.")
+        return []
+
+    # 2. Compute from disk.
+    for site in sites:
         if p_all is None:
             p_all = parcels_table()
         pl = plan(site, p_all)
@@ -307,14 +345,10 @@ def run(sites=None, only_years=None, workers: int = 4, dry_run: bool = False,
               + f"; {len(pl.sample_ids)} sampled + labelled parcels -> {len(pl.parcels)}")
         sens = {r: [] for r in pl.regimes}
         for year in yrs:
-            items = items_for(site, year, session)
-            todo = [it for it in items if not store.path(site, it.id).exists()]
-            with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
-                list(ex.map(lambda it, pl=pl, s=site: store.fetch(it, pl.win, s), todo))
+            its = items[(site, year)]
             res = [(it, process(store.load(store.path(site, it.id), pl.win), it.doy, pl))
-                   for it in items]
-            print(f"  {site} {year}: {len(items)} mosaics ({len(todo)} downloaded, "
-                  f"{len(items) - len(todo)} on disk), "
+                   for it in its]
+            print(f"  {site} {year}: {len(its)} mosaics, "
                   f"{sum(1 for _, r in res if r['traj'])} with clear grassland")
 
             # trajectory

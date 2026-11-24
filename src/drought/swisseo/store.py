@@ -11,6 +11,7 @@ them without a new download.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import numpy as np
@@ -29,13 +30,34 @@ def path(site: str, item_id: str) -> Path:
     return series_root() / "scenes" / site / f"{item_id}.tif"
 
 
+ATTEMPTS = 4          # a read cut off in transit is retried; waits 5, 20, 45 s
+
+
+def _download(item, win: grid.Window) -> dict[str, np.ndarray]:
+    from rasterio.errors import RasterioError
+
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            with scene.gdal_env():
+                ok = scene.clear_mask(item, win)
+                return scene.indices(item, win, ok)
+        except (RasterioError, OSError):
+            if attempt == ATTEMPTS:
+                raise
+            time.sleep(5 * attempt ** 2)
+    raise AssertionError("unreachable")
+
+
 def fetch(item, win: grid.Window, site: str) -> Path:
-    """Download one mosaic for one site and store it. Returns the file."""
+    """Download one mosaic for one site and store it. Returns the file.
+
+    Raises:
+        rasterio.errors.RasterioError: The mosaic could not be read after
+            ATTEMPTS tries.
+    """
     import rasterio
 
-    with scene.gdal_env():
-        ok = scene.clear_mask(item, win)
-        ix = scene.indices(item, win, ok)
+    ix = _download(item, win)
     arr = np.full((len(BANDS), *win.shape), NODATA, np.int16)
     for i, b in enumerate(BANDS):
         v = ix[b]
