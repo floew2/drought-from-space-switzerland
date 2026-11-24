@@ -28,9 +28,11 @@ which are not part of this repository.
 meadows browned field by field in summer 2026.*
 
 **Data and method.** The 2026 season is compared with a 2019–2025 baseline,
-using Sentinel-2 time series at 10 m (cloud-masked with Cloud Score+), the current
-cantonal agricultural parcel maps for 2025 (meadows selected by their
-official land-use (LNF) codes) and MeteoSwiss station data. Swiss meadows are
+using Sentinel-2 time series at 10 m (cloud-masked with Cloud Score+), the
+cantonal agricultural parcel maps for 2017–2025 and MeteoSwiss station data.
+Meadows are selected by their official land-use (LNF) codes; a field is used
+only if it was the same kind of meadow (intensive or extensive) in every year
+from 2017 to 2025. Swiss meadows are
 small: the median intensive meadow covers 0.67 ha and the median extensive one
 just 0.19 ha, only about 67 and 19 pixels. Most pixels therefore touch a field
 edge and mix grass with roads, hedges or crops. To keep that signal out, each
@@ -127,12 +129,13 @@ create the grassland mask.
 | step                              | needs                                        | open? |
 |-----------------------------------|----------------------------------------------|---|
 | rainfall and water balance        | internet                                     | **yes**, MeteoSwiss Open Data |
-| grassland mask                    | parcel polygons per year                     | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/) and was used in this study; earlier years are not open. With one year, every field is kept. |
+| grassland mask                    | parcel polygons per year                     | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/); earlier years are not open. With one year, every field is kept. |
 | grassland condition               | the grassland mask + an Earth Engine project | **yes**, free for noncommercial use ([terms](https://earthengine.google.com/terms), [quotas](https://developers.google.com/earth-engine/guides/noncommercial_tiers)) |
 | mowing scores (cutting frequency) | hand labels                                  | **no**; make your own with the labelling widget |
 
-The parcel data used here came from the Canton of St. Gallen and is not
-redistributed. In this study, freely available data from [geodienste.ch](https://www.geodienste.ch/) was sourced. Nothing in `data/` is committed.
+The mask in this study was built from the yearly parcel layers 2017–2025,
+provided by the Canton of St. Gallen and used with its permission. The
+parcel data is not redistributed; nothing in `data/` is committed.
 
 ```mermaid
 flowchart LR
@@ -226,8 +229,15 @@ drought-from-space-switzerland/
 Code: MIT ([LICENSE](LICENSE)). Contains modified Copernicus Sentinel data
 (2019–2026), processed in Google Earth Engine; Cloud Score+ (Pasquarella et al.
 2023). Station data: MeteoSwiss Open Data (CC BY 4.0), *Quelle: MeteoSchweiz*.
-Elevation: CGIAR-CSI SRTM 90 m. Field geometries: Nutzungsflächen, Kanton
-St. Gallen, not redistributed.
+Elevation: CGIAR-CSI SRTM 90 m. Field geometries: Nutzungsflächen 2017–2025,
+© Kanton St.Gallen, provided by the Amt für Raumentwicklung und Geoinformation
+(AREG), used with permission and not redistributed. The cantonal geodata have
+no legal effect and serve information purposes only (*Die angebotenen Geodaten
+entfalten keine Rechtswirkung und dienen ausschliesslich
+Informationszwecken*). No guarantee is given that they are free of errors,
+complete, current or accurate (*Es wird keine Garantie für die Fehlerlosigkeit,
+Vollständigkeit, Aktualität und Genauigkeit der Daten übernommen*). Terms:
+[Nutzungsbedingungen für Geodaten des Kantons St.Gallen](https://www.sg.ch/bauen/geoinformation/datenbezug/agb.html).
 
 ## Author
 

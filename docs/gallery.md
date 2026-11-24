@@ -2,10 +2,10 @@
 
 The figures, rendered, so the results can be read without cloning. All of them
 come from the real data, except the sensor-response model, which uses no data
-at all. They are aggregates (curves, distributions, totals) and imagery. Two
-exceptions show individual fields: the imagery-to-mask overview (field outlines
-in three 500 m windows) and one meadow's mowing curve (no ID, no location). The
-parcel data itself is not published.
+at all. Most are aggregates (curves, distributions, totals) and imagery; the
+mask overview, the per-field anomaly maps and one meadow's mowing curve show
+individual fields. The parcel data comes from the Canton of St. Gallen, is used
+with its permission and is not published.
 
 Synthetic figures are never committed. `make demo` writes them to
 `output/synthetic/figures/` for anyone who wants to see what each step does.
