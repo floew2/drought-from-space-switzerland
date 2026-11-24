@@ -9,7 +9,6 @@ windows are read, over HTTP. No account, no quota.
 
     drought swisseo items        what the catalogue holds for a site and year
     drought swisseo run          trajectory, sensitivity and cut series, one pass
-    drought swisseo check-ids    do local parcel ids match the Earth Engine ones?
     drought swisseo vhi          swisstopo's Vegetation Health Index per parcel
 
 The outputs have the same columns and file names as the Earth Engine exports,

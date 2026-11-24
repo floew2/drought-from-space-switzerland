@@ -58,8 +58,8 @@ def labelled(site: str) -> dict[int, list[str]]:
 def sample(site: str, n: int | None = None, ids: list[str] | None = None):
     """The parcel sample for a site, with area and elevation.
 
-    With `ids`, exactly those parcels (by their `system:index`, which is what
-    `parcel_id` holds) instead of the random sample. Cleaning works per parcel,
+    With `ids`, exactly those parcels (by parcel_id, a column of the uploaded
+    parcel file, see parcel_ids.py) instead of the random sample. Cleaning works per parcel,
     so their series are the same as they would be inside the full sample.
     """
     ee = session.ee()
@@ -79,10 +79,9 @@ def sample(site: str, n: int | None = None, ids: list[str] | None = None):
                                     scale=90, tileScale=4)
                  .filter(ee.Filter.notNull(["elev_m"])))
     code = CFG.gee.parcel_code_field
-    chosen = (with_elev.filter(ee.Filter.inList("system:index", list(ids))) if ids else
+    chosen = (with_elev.filter(ee.Filter.inList("parcel_id", list(ids))) if ids else
               with_elev.randomColumn("rnd", c.seed).sort("rnd").limit(n or c.sample_n))
-    return chosen.map(lambda f: f.set("parcel_id", f.get("system:index"))
-                      .set("lnf_code", f.get(code)))
+    return chosen.map(lambda f: f.set("lnf_code", f.get(code)))
 
 
 def stack(site: str, year: int):

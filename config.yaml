@@ -24,6 +24,7 @@ paths:
   labels: data/labels      # hand-labelled reference data, one file per site
   masks: data/masks        # grassland mask GeoTIFF (uploaded to GEE)
   parcels: data/nutzungen  # yearly Nutzungsflaechen shapefiles, searched
+  parcel_ids: data/parcels # parcels_<year>.shp with parcel_id (`drought parcels ids`)
                            # RECURSIVELY (each year often sits in its own folder)
   station: data/station    # MeteoSwiss daily series, if cached locally
   figures: output/figures  # one subfolder per site
@@ -235,6 +236,7 @@ synthetic:
     labels: data/synthetic/labels
     masks: data/synthetic/masks
     parcels: data/synthetic/nutzungen
+    parcel_ids: data/synthetic/parcels
     station: data/synthetic/station
     figures: output/synthetic/figures
     tables: output/synthetic/tables
@@ -279,7 +281,7 @@ gee:
   drive_folder: drought-from-space       # Google Drive folder the exports land in
   assets:
     mask: grassland_mask_sg              # uploaded in the Code Editor, then `drought ee stamp-mask`
-    parcels: nutzungsflaechen_           # + year, e.g. nutzungsflaechen_2025
+    parcels: parcels_                    # + year: data/parcels/parcels_<year>.shp, uploaded
   parcels_year: 2025                     # the cadastre the per-parcel work runs on
   parcel_code_field: lnf_code
   # Cloud Score+ cs_cdf threshold: a pixel is used only if cs_cdf >= this.

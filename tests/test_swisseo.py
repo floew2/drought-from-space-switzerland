@@ -208,3 +208,10 @@ def test_vhi_on_the_pure_cells_of_each_parcel(world, tmp_path):
     # the first parcel lies in the no-data rows, the second does not
     assert per.parcel_id.tolist() == [parcels.parcel_id[1]]
     assert per.vhi_mean.tolist() == [30.0]
+
+
+def test_parcel_id_is_the_rounded_lv95_centroid():
+    from drought.parcel_ids import make_ids
+    g = gpd.GeoSeries([box(2718000, 1226000, 2718100, 1226200)], crs=2056)
+    assert make_ids(g) == ["2718050_1226100"]
+    assert make_ids(g.to_crs(4326)) == ["2718050_1226100"]     # any input CRS

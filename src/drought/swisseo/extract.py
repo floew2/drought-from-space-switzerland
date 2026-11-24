@@ -20,11 +20,7 @@ is left out of the sensitivity composite and the cut series, as Earth Engine
 leaves out granules above gee.*.max_scene_cloud; the trajectory keeps it if
 enough cells are clear, as in Earth Engine.
 
-Parcel ids. Earth Engine names a feature of an uploaded shapefile by its
-position in the file, as 20 hexadecimal digits; the hand labels carry those ids.
-Here a parcel's id is built the same way from the same file
-(paths.parcels, gee.parcels_year). `drought swisseo check-ids` confirms that
-both sides name the same fields before labels are scored on swissEO series.
+Parcels are identified by parcel_id from `drought parcels ids` (src/drought/parcel_ids.py).
 
 Results per mosaic are cached under <paths.swisseo>/_cache/<CONFIG_HASH>/, so a
 run that stops resumes, and a second run costs nothing.
@@ -64,32 +60,19 @@ def config_hash() -> str:
 # --------------------------------------------------------------------------- #
 # Parcels
 # --------------------------------------------------------------------------- #
-def parcels_table(path: Path | None = None):
-    """The cadastre the per-parcel work runs on, with Earth Engine's ids.
+def parcels_table(year: int | None = None):
+    """The cadastre the per-parcel work runs on (gee.parcels_year), in LV95.
 
     Returns:
-        GeoDataFrame in LV95: parcel_id (20 hex digits of the row position),
-        lnf_code, area_ha (planar, before the edge buffer), geometry.
+        GeoDataFrame: parcel_id, lnf_code, area_ha (planar, before the edge
+        buffer), geometry.
     """
-    import geopandas as gpd
+    from .. import parcel_ids
 
-    from ..mask.parcels import _year_files
-    from ..mask.settings import CODE_FIELD_CANDIDATES
-
-    path = path or _year_files()[int(CFG.gee.parcels_year)]
-    g = gpd.read_file(path)
-    if g.crs is None:
-        raise ValueError(f"{path}: no CRS")
-    g = g.to_crs(2056)
-    code = next((c for c in CODE_FIELD_CANDIDATES if c in g.columns), None)
-    if code is None:
-        raise ValueError(f"{path}: none of {CODE_FIELD_CANDIDATES} in {list(g.columns)}")
-    out = gpd.GeoDataFrame({
-        "parcel_id": [f"{i:020x}" for i in range(len(g))],
-        "lnf_code": pd.to_numeric(g[code], errors="coerce"),
-        "area_ha": g.geometry.area / 1e4,
-    }, geometry=g.geometry.values, crs=2056)
-    return out[out.geometry.notna() & ~out.geometry.is_empty]
+    g = parcel_ids.read(year).to_crs(2056)
+    g["lnf_code"] = pd.to_numeric(g.lnf_code, errors="coerce")
+    g["area_ha"] = g.geometry.area / 1e4
+    return g[["parcel_id", "lnf_code", "area_ha", "geometry"]]
 
 
 def _elevation(geoms) -> np.ndarray:
@@ -196,8 +179,7 @@ def plan(site: str, parcels=None, mask_file=None) -> Plan:
     missing = wanted - set(chosen.parcel_id)
     if missing:
         print(f"  [!] {site}: {len(missing)} labelled parcel id(s) not in the cadastre "
-              f"inside the site window, e.g. {sorted(missing)[:3]} — "
-              "run `drought swisseo check-ids`")
+              f"inside the site window, e.g. {sorted(missing)[:3]}")
     shrunk = chosen.geometry.buffer(float(c.edge_buffer_m))
     lab = _rasterize(shrunk, np.arange(1, len(chosen) + 1), win)
     lab[~(m["mown"] >= pmin)] = 0

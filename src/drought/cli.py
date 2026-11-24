@@ -357,9 +357,6 @@ def _swisseo(a) -> None:
                 print(f"  {site} {y}: {len(its)} mosaics"
                       + (f", {its[0].datetime:%d %b} - {its[-1].datetime:%d %b}" if its else ""))
         return
-    if a.action == "check-ids":
-        _swisseo_check_ids(a.site)
-        return
     if backend() != "swisseo":
         sys.exit(f"backend is {backend()!r}. Set `backend: swisseo` (the default) "
                  "or use `drought ee …`.")
@@ -374,38 +371,9 @@ def _swisseo(a) -> None:
         vhi.plot(year=a.year[0] if a.year else None, sites=a.site)
 
 
-def _swisseo_check_ids(sites) -> None:
-    """Earth Engine's parcel ids against the local cadastre: same code, same area?"""
-    import pandas as pd
-
-    from .config import CFG, gee_dir
-    from .swisseo import extract
-
-    local = extract.parcels_table().set_index("parcel_id")
-    bad = 0
-    for site in sites or list(CFG.gee.cuts.sites):
-        files = sorted((gee_dir(site) / "labelled").glob("cuts_*.csv")) + \
-            sorted(gee_dir(site).glob("cuts_*.csv"))
-        if not files:
-            print(f"  {site}: no Earth Engine cut export in {gee_dir(site)} to compare with")
-            continue
-        ee = pd.concat([pd.read_csv(f, usecols=lambda c: c in ("parcel_id", "area_ha", "lnf_code"),
-                                    dtype={"parcel_id": str}) for f in files]).drop_duplicates("parcel_id")
-        j = ee.join(local[["lnf_code", "area_ha"]], on="parcel_id", rsuffix="_local")
-        missing = j.area_ha_local.isna()
-        code_off = ~missing & (j.lnf_code != j.lnf_code_local)
-        area_off = ~missing & ((j.area_ha_local / j.area_ha - 1).abs() > 0.02)
-        n_bad = int(missing.sum() + code_off.sum() + area_off.sum())
-        bad += n_bad
-        print(f"  {site}: {len(j)} Earth Engine parcel ids; {int(missing.sum())} not in the "
-              f"local cadastre, {int(code_off.sum())} with another land-use code, "
-              f"{int(area_off.sum())} with an area off by > 2 %")
-        if n_bad:
-            print(j[missing | code_off | area_off].head(10).to_string(index=False))
-    if bad:
-        sys.exit("parcel ids do not match: the labels cannot be scored on swissEO series "
-                 "until they do (gee.parcels_year and the shapefile must be the ones uploaded)")
-    print("  parcel ids match")
+def _parcels(a) -> None:
+    from . import parcel_ids
+    parcel_ids.write(a.year)
 
 
 def _provenance(a) -> None:
@@ -603,8 +571,6 @@ def build_parser() -> argparse.ArgumentParser:
     for name, text in (("items", "how many mosaics the catalogue holds per site and year"),
                        ("run", "trajectory, sensitivity and cut series in one pass "
                         "-> data/swisseo/"),
-                       ("check-ids", "do the local parcel ids match Earth Engine's? "
-                        "(needs an Earth Engine cut export)"),
                        ("vhi", "swisstopo's Vegetation Health Index on our grassland "
                         "cells, current year -> data/swisseo/vhi/ and a figure")):
         c = sw.add_parser(name, help=text)
@@ -619,6 +585,13 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "vhi":
             c.add_argument("--plot-only", action="store_true", help="only redraw the figure")
         c.set_defaults(func=_swisseo)
+
+    pa = sub.add_parser("parcels", help="the parcel file with stable ids").add_subparsers(
+        dest="action", required=True, metavar="ACTION")
+    c = pa.add_parser("ids", help="add parcel_id (centroid, LV95, 1 m) -> "
+                      "data/parcels/parcels_<year>.shp")
+    c.add_argument("--year", type=int, help="default: gee.parcels_year")
+    c.set_defaults(func=_parcels)
 
     pv = sub.add_parser("provenance", help="provenance records of data files").add_subparsers(
         dest="action", required=True, metavar="ACTION")

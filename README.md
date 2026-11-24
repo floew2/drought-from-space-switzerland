@@ -168,8 +168,8 @@ Parcel shapefiles go to `data/nutzungen/<year>/`, hand labels to `data/labels/`.
 
 ```bash
 drought mask build                    # purity mask -> data/masks/grassland_mask_sg.tif
+drought parcels ids                   # parcel file with a stable parcel_id -> data/parcels/
 drought swisseo items                 # mosaics per site and year in the catalogue
-drought swisseo check-ids             # labels' parcel ids = local ids? (needs an ee cut export)
 drought swisseo run                   # trajectory, sensitivity, cut series -> data/swisseo/
 drought swisseo vhi                   # swisstopo's VHI on the same cells, current year
 drought trajectory plot
@@ -187,9 +187,9 @@ loading refuses a mismatch.
 
 **Earth Engine instead:** `uv sync --extra ee`, `earthengine authenticate`, put
 `backend: gee` and `gee: {project: <your-ee-project>}` in `config.local.yaml`
-(git-ignored), upload the mask GeoTIFF in the
-[Code Editor](https://code.earthengine.google.com/) (name `grassland_mask_sg`,
-pyramiding **SAMPLE**), then `drought ee stamp-mask`, `drought ee trajectory`,
+(git-ignored), upload in the [Code Editor](https://code.earthengine.google.com/)
+the mask GeoTIFF (name `grassland_mask_sg`, pyramiding **SAMPLE**) and
+`data/parcels/parcels_<year>.shp` (name `parcels_<year>`), then `drought ee stamp-mask`, `drought ee trajectory`,
 `drought ee sensitivity`, `drought ee cuts --labelled-only`. Exports go to
 Google Drive and are downloaded and registered from there.
 
