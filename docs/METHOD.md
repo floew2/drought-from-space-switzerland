@@ -23,7 +23,7 @@ the Alpstein.
 | input | what | used for |
 |---|---|---|
 | Sentinel-2 L2A, 10 m, 2019–2026 | spectral indices, Cloud Score+ cloud mask | condition and cuts |
-| Nutzungsflächen 2017–2025 | yearly field outlines with land-use codes | which pixels are grassland, of which kind |
+| Nutzungsflächen 2017–2025, Kanton St.Gallen (used with permission) | yearly field outlines with land-use codes | which pixels are grassland, of which kind |
 | MeteoSwiss station St. Gallen, 1991–2026 | daily precipitation and temperature | independent check |
 
 2026 is compared with 2019–2025. That baseline includes the 2022 drought, so
