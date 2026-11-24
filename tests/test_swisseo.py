@@ -151,6 +151,7 @@ def test_indices_and_masks_from_one_mosaic(world):
 def test_stored_file_is_the_whole_window_independent_of_the_mask(world):
     parcels, sess = world
     import rasterio
+
     from drought.swisseo import store
     pl = extract.plan("linthebene", parcels)
     cloudy = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 11),
