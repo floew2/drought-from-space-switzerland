@@ -191,3 +191,20 @@ def test_series_from_another_backend_are_refused(world, monkeypatch):
     with pytest.raises(provenance.ProvenanceError) as exc:
         provenance.verify(files[0], "trajectory")
     assert exc.value.field == "backend"
+
+
+def test_vhi_on_the_pure_cells_of_each_parcel(world, tmp_path):
+    from drought.swisseo import vhi
+
+    parcels, _ = world
+    a = np.full((N + 40, N + 40), 30, "uint8")
+    a[:20 + 20] = 110                                  # no data over the top 20 mask rows
+    f = _tif(tmp_path / "vhi.tif", a, X0 - 200, Y0 + 200, 10, "uint8")
+    sess = _Session({"v": ("2026-07-01", {"vegetation-10m": f})})
+    out = vhi.run(sites=["linthebene"], parcels=parcels, session=sess, workers=1)
+    series = pd.read_csv(out[0])
+    per = pd.read_csv(out[1], dtype={"parcel_id": str})
+    assert series.vhi_mean.eq(30).all() and (series.n_px > 0).all()
+    # the first parcel lies in the no-data rows, the second does not
+    assert per.parcel_id.tolist() == [parcels.parcel_id[1]]
+    assert per.vhi_mean.tolist() == [30.0]
