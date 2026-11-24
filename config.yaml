@@ -12,8 +12,15 @@ project:
   # 2026 anomaly measured against it is conservative — a floor, not a ceiling.
   baseline_years: [2019, 2020, 2021, 2022, 2023, 2024, 2025]
 
+# Where the Sentinel-2 series come from. swisseo (default): swisstopo's
+# swissEO S2-SR v200, read locally; no account needed. gee: Google Earth Engine
+# exports (`drought ee …`). Series from the two never mix: each has its own
+# folder (paths.swisseo / paths.gee), and the backend enters the CONFIG_HASH.
+backend: swisseo
+
 paths:
   gee: data/gee            # GEE exports, one subfolder per site
+  swisseo: data/swisseo    # swissEO series, one subfolder per site
   labels: data/labels      # hand-labelled reference data, one file per site
   masks: data/masks        # grassland mask GeoTIFF (uploaded to GEE)
   parcels: data/nutzungen  # yearly Nutzungsflaechen shapefiles, searched
@@ -224,12 +231,43 @@ synthetic:
   scale: 0.125             # share of the real parcel count to generate
   paths:
     gee: data/synthetic/gee
+    swisseo: data/synthetic/swisseo
     labels: data/synthetic/labels
     masks: data/synthetic/masks
     parcels: data/synthetic/nutzungen
     station: data/synthetic/station
     figures: output/synthetic/figures
     tables: output/synthetic/tables
+
+# --- swissEO (swisstopo) -------------------------------------------------------
+# Sentinel-2 surface reflectance, swissEO S2-SR v200: one mosaic per orbit and
+# date, Cloud Optimised GeoTIFFs in LV95 on a 10 m grid that coincides with the
+# mask grid. Only the site windows are read (HTTP range requests). Read by
+# `drought swisseo …` (src/drought/swisseo/). The windows, sample sizes and
+# pixel minimums in gee.trajectory / gee.sensitivity / gee.cuts apply to both
+# backends; the Cloud Score+ thresholds in gee.clear_threshold do not.
+swisseo:
+  stac: https://data.geo.admin.ch/api/stac/v0.9
+  collection: ch.swisstopo.swisseo_s2-sr_v200
+  scale: 0.0001            # reflectance = DN * scale + offset
+  offset: -0.1             # NOT optional: a normalised difference is not offset-invariant
+  # CLOUDMASK-10M (OmniCloudMask): 0 clear, 1 thick cloud, 2 thin cloud, 3 cloud shadow
+  cloud_clear: [0]
+  # TERRAINMASK-10M: solar incidence angle 0-180 deg, 200 cast shadow, 255 no data
+  terrain_drop: [200, 255]
+  terrain_max_incidence: 90  # at >= 90 deg the slope faces away from the sun
+  scl_drop: [0, 11]        # SCL-20M: 0 no data, 11 snow / ice
+  # Share (%) of a site's grassland cells that are not clear above which a date
+  # is dropped from the sensitivity composite and the cut series. Stands in for
+  # the granule-level CLOUDY_PIXEL_PERCENTAGE filter (gee.*.max_scene_cloud).
+  max_site_cloud: 80
+  # Optional DEM GeoTIFF in LV95 for the parcels' elev_m (metadata only).
+  # null leaves elev_m empty.
+  dem: null
+  # Vegetation Health Index, swisstopo / MeteoSwiss: the cross-check.
+  vhi_collection: ch.swisstopo.swisseo_vhi_v100
+  vhi_asset: vegetation-10m  # all vegetation; the forest layer is not used
+  vhi_nodata: [110, 255]
 
 # --- Earth Engine ------------------------------------------------------------
 # Read directly by the Python exports (`drought ee …`, src/drought/engine/).

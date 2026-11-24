@@ -78,7 +78,7 @@ def generate(seed: int | None = None, scale: float | None = None,
         dict of what was written, with the calibration results.
     """
     from .. import config
-    from ..config import CFG, gee_dir, labels_path, parcels_dir, station_dir
+    from ..config import CFG, labels_path, parcels_dir, series_dir, series_root, station_dir
 
     config.activate("synthetic")
     seed = CFG.synthetic.seed if seed is None else seed
@@ -124,7 +124,7 @@ def generate(seed: int | None = None, scale: float | None = None,
     if verbose:
         print("  site trajectories, calibrated to the real season integrals:")
     traj = series.trajectories(rng["trajectory"], verbose=verbose)
-    tpath = config.ROOT / CFG.paths.gee / "grassland_trajectory_multi.csv"
+    tpath = series_root() / "grassland_trajectory_multi.csv"
     tpath.parent.mkdir(parents=True, exist_ok=True)
     traj.to_csv(tpath, index=False)
     register(tpath, "trajectory")
@@ -134,7 +134,7 @@ def generate(seed: int | None = None, scale: float | None = None,
         print("  per-parcel cut series and hand labels")
     wide, truth = series.cut_series(rng["cuts"], pop)
     for (site, year), df in wide.items():
-        f = gee_dir(site) / f"cuts_{site}_{year}.csv"
+        f = series_dir(site) / f"cuts_{site}_{year}.csv"
         df.to_csv(f, index=False)
         register(f, "cuts")
     labels = series.hand_labels(rng["labels"], truth)

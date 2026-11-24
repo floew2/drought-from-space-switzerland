@@ -160,7 +160,7 @@ def _cuts_score(a) -> None:
         "recall": h["recall"], "f1": h["f1"],
         "recall_per_year": [float(by_year.recall.min()), float(by_year.recall.max())],
         "changepoint_f1": cp["f1"]},
-        inputs=sorted((config.gee_dir(a.site) / ("labelled" if a.labelled else ""))
+        inputs=sorted((config.series_dir(a.site) / ("labelled" if a.labelled else ""))
                       .glob("cuts_*.csv")))
 
 
@@ -306,8 +306,12 @@ def _sensitivity_plot(a) -> None:
 
 
 def _ee(a) -> None:
-    from .config import CFG
+    from .config import CFG, backend
     from .engine import cuts, imagery, sensitivity, session, stamp, tasks, trajectory
+
+    if backend() != "gee" and a.action not in ("check", "stamp-mask", "rgb"):
+        sys.exit(f"backend is {backend()!r}: Earth Engine series would not match it. "
+                 "Set `backend: gee` in config.local.yaml (or --set backend=gee).")
 
     if a.action == "check":
         print(f"  project {session.project()}; exports go to Drive folder "
@@ -340,6 +344,68 @@ def _ee(a) -> None:
     if paths:
         n_reg = sum(1 for e in exps if e.kind and e.local in paths)
         print(f"  {len(paths)} file(s) downloaded, {n_reg} registered")
+
+
+def _swisseo(a) -> None:
+    from .config import CFG, backend
+    from .swisseo import extract, vhi
+
+    if a.action == "items":
+        for site in a.site or list(CFG.sites.to_dict()):
+            for y in a.year or extract.years():
+                its = extract.items_for(site, y)
+                print(f"  {site} {y}: {len(its)} mosaics"
+                      + (f", {its[0].datetime:%d %b} - {its[-1].datetime:%d %b}" if its else ""))
+        return
+    if a.action == "check-ids":
+        _swisseo_check_ids(a.site)
+        return
+    if backend() != "swisseo":
+        sys.exit(f"backend is {backend()!r}. Set `backend: swisseo` (the default) "
+                 "or use `drought ee …`.")
+    if a.action == "run":
+        files = extract.run(sites=a.site, only_years=a.year, workers=a.workers,
+                            dry_run=a.dry_run)
+        if files:
+            print(f"  {len(files)} file(s) written and registered")
+    elif a.action == "vhi":
+        if not a.plot_only:
+            vhi.run(sites=a.site, year=a.year[0] if a.year else None, workers=a.workers)
+        vhi.plot(year=a.year[0] if a.year else None, sites=a.site)
+
+
+def _swisseo_check_ids(sites) -> None:
+    """Earth Engine's parcel ids against the local cadastre: same code, same area?"""
+    import pandas as pd
+
+    from .config import CFG, gee_dir
+    from .swisseo import extract
+
+    local = extract.parcels_table().set_index("parcel_id")
+    bad = 0
+    for site in sites or list(CFG.gee.cuts.sites):
+        files = sorted((gee_dir(site) / "labelled").glob("cuts_*.csv")) + \
+            sorted(gee_dir(site).glob("cuts_*.csv"))
+        if not files:
+            print(f"  {site}: no Earth Engine cut export in {gee_dir(site)} to compare with")
+            continue
+        ee = pd.concat([pd.read_csv(f, usecols=lambda c: c in ("parcel_id", "area_ha", "lnf_code"),
+                                    dtype={"parcel_id": str}) for f in files]).drop_duplicates("parcel_id")
+        j = ee.join(local[["lnf_code", "area_ha"]], on="parcel_id", rsuffix="_local")
+        missing = j.area_ha_local.isna()
+        code_off = ~missing & (j.lnf_code != j.lnf_code_local)
+        area_off = ~missing & ((j.area_ha_local / j.area_ha - 1).abs() > 0.02)
+        n_bad = int(missing.sum() + code_off.sum() + area_off.sum())
+        bad += n_bad
+        print(f"  {site}: {len(j)} Earth Engine parcel ids; {int(missing.sum())} not in the "
+              f"local cadastre, {int(code_off.sum())} with another land-use code, "
+              f"{int(area_off.sum())} with an area off by > 2 %")
+        if n_bad:
+            print(j[missing | code_off | area_off].head(10).to_string(index=False))
+    if bad:
+        sys.exit("parcel ids do not match: the labels cannot be scored on swissEO series "
+                 "until they do (gee.parcels_year and the shapefile must be the ones uploaded)")
+    print("  parcel ids match")
 
 
 def _provenance(a) -> None:
@@ -454,7 +520,7 @@ def build_parser() -> argparse.ArgumentParser:
     c = t.add_parser("plot", help="trajectory and season-integral figures")
     c.add_argument("--site", help="one site (default: all in the export)")
     c.add_argument("--index", help="NDMI, NDVI, kNDVI or NDRE (default: config detect.index)")
-    c.add_argument("--path", help="trajectory CSV (default: found under paths.gee)")
+    c.add_argument("--path", help="trajectory CSV (default: found under the backend's series folder)")
     c.set_defaults(func=_trajectory_plot)
 
     se = sub.add_parser("sensitivity", help="purity-threshold sensitivity").add_subparsers(
@@ -530,6 +596,29 @@ def build_parser() -> argparse.ArgumentParser:
         c.add_argument("--dry-run", action="store_true",
                        help="check the mask asset and list the exports, start nothing")
         c.set_defaults(func=_ee)
+
+    sw = sub.add_parser("swisseo", help="Sentinel-2 series from swisstopo's swissEO, read "
+                        "locally (the default backend)").add_subparsers(
+        dest="action", required=True, metavar="ACTION")
+    for name, text in (("items", "how many mosaics the catalogue holds per site and year"),
+                       ("run", "trajectory, sensitivity and cut series in one pass "
+                        "-> data/swisseo/"),
+                       ("check-ids", "do the local parcel ids match Earth Engine's? "
+                        "(needs an Earth Engine cut export)"),
+                       ("vhi", "swisstopo's Vegetation Health Index on our grassland "
+                        "cells, current year -> data/swisseo/vhi/ and a figure")):
+        c = sw.add_parser(name, help=text)
+        c.add_argument("--site", action="append", help="repeatable; default: all")
+        if name in ("items", "run", "vhi"):
+            c.add_argument("--year", action="append", type=int, help="repeatable")
+        if name in ("run", "vhi"):
+            c.add_argument("--workers", type=int, default=4, help="mosaics read in parallel")
+        if name == "run":
+            c.add_argument("--dry-run", action="store_true",
+                           help="count the mosaics per site and year, read nothing")
+        if name == "vhi":
+            c.add_argument("--plot-only", action="store_true", help="only redraw the figure")
+        c.set_defaults(func=_swisseo)
 
     pv = sub.add_parser("provenance", help="provenance records of data files").add_subparsers(
         dest="action", required=True, metavar="ACTION")

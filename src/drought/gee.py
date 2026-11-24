@@ -18,7 +18,7 @@ from pathlib import Path
 
 from .config import CFG, ROOT
 
-__all__ = ["expected_hash", "manifest_settings", "render_settings"]
+__all__ = ["backend_settings", "expected_hash", "manifest_settings", "render_settings"]
 
 # Settings of the Python exports that enter the CONFIG_HASH.
 ENGINE_KEYS = ("gee.clear_threshold", "gee.strict_purity", "gee.parcels_year",
@@ -62,7 +62,29 @@ def render_settings(with_mask: bool = True) -> dict:
         out[key] = v.to_dict() if hasattr(v, "to_dict") else v
     fp = mask_fingerprint() if with_mask else None
     out["mask.sha256"] = fp["sha256"] if fp else None
+    out.update(backend_settings())
     return out
+
+
+# swisseo settings that change WHAT is measured. Where the catalogue lives, the
+# DEM (metadata only) and the VHI cross-check do not.
+_SWISSEO_UNHASHED = ("stac", "dem", "vhi_collection", "vhi_asset", "vhi_nodata")
+
+
+def backend_settings() -> dict:
+    """The backend and its settings, for the hash and the provenance records.
+
+    Empty for Earth Engine, so every hash and record made before the swissEO
+    backend existed stays valid unchanged.
+    """
+    from .config import backend
+
+    b = backend()
+    if b == "gee":
+        return {}
+    sw = CFG.swisseo.to_dict()
+    return {"backend": b,
+            "swisseo": {k: v for k, v in sw.items() if k not in _SWISSEO_UNHASHED}}
 
 
 def expected_hash(with_mask: bool = True) -> str:

@@ -55,6 +55,8 @@ SETTING_KEYS = {
                 "analysis.merge_regimes", "gee.clear_threshold"),
 }
 MASK_DEPENDENT = {"trajectory", "cuts", "sensitivity", "results"}
+# Kinds whose content depends on where the Sentinel-2 series came from.
+BACKEND_DEPENDENT = {"trajectory", "cuts", "sensitivity", "results"}
 
 
 class ProvenanceError(RuntimeError):
@@ -83,6 +85,9 @@ def settings(kind: str = "results") -> dict:
     for key in SETTING_KEYS[kind]:
         v = CFG.get(key)
         out[key] = v.to_dict() if hasattr(v, "to_dict") else v
+    if kind in BACKEND_DEPENDENT:
+        from .gee import backend_settings
+        out.update(backend_settings())       # nothing for Earth Engine
     return out
 
 
@@ -275,9 +280,12 @@ def register(path: str | Path, kind: str) -> Path:
             field, was, cur = _first_difference(old, _render_view()) if old else (
                 "config hash", m.group(1), now)
             raise ProvenanceError(path, field, was, cur,
-                                  "Re-run the export (`drought ee ...`).")
+                                  "Re-run the export (`drought swisseo run` "
+                                  "or `drought ee ...`).")
     rec = record(kind, path, content)
-    rec["registered_from"] = "earth engine export"
+    from .config import backend
+    rec["registered_from"] = ("swisseo extraction" if backend() == "swisseo"
+                              else "earth engine export")
     return write_sidecar(path, rec)
 
 
@@ -334,6 +342,18 @@ def _verify(path: Path, kind: str) -> dict:
         if rec["settings"].get(key) != now.get(key):
             raise ProvenanceError(path, key, rec["settings"].get(key), now.get(key),
                                   "The file was produced under different settings.")
+    if kind in BACKEND_DEPENDENT:
+        # A record without a backend predates the swissEO backend: Earth Engine.
+        was = rec["settings"].get("backend", "gee")
+        cur = now.get("backend", "gee")
+        if was != cur:
+            raise ProvenanceError(path, "backend", was, cur,
+                                  "Series from another backend. Set `backend` in "
+                                  "config.local.yaml, or re-run the extraction.")
+        if rec["settings"].get("swisseo") != now.get("swisseo"):
+            raise ProvenanceError(path, "swisseo", rec["settings"].get("swisseo"),
+                                  now.get("swisseo"),
+                                  "The file was produced under different swissEO settings.")
     if kind == "mask":
         from .config import CFG as _C
         fp = mask_fingerprint(path)

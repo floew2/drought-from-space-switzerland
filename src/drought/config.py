@@ -221,6 +221,31 @@ def gee_dir(site: str) -> Path:
     return p
 
 
+BACKENDS = ("swisseo", "gee")
+
+
+def backend() -> str:
+    """Where the Sentinel-2 series come from: "swisseo" (default) or "gee"."""
+    b = str(getattr(CFG, "backend", "gee") or "gee")
+    if b not in BACKENDS:
+        raise ValueError(f"backend {b!r}: expected one of {', '.join(BACKENDS)}")
+    return b
+
+
+def series_root() -> Path:
+    """Folder of the Sentinel-2 series under the active backend."""
+    p = _base("swisseo" if backend() == "swisseo" else "gee")
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def series_dir(site: str) -> Path:
+    """Per-site folder of the Sentinel-2 series under the active backend."""
+    p = series_root() / site
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
 def figures_dir(site: str | None = None) -> Path:
     p = _base("figures") / site if site else _base("figures")
     p.mkdir(parents=True, exist_ok=True)
@@ -275,14 +300,15 @@ def site_cfg(site: str) -> Config:
 def available(site: str) -> dict:
     """What data actually exists for a site, so a notebook can say so plainly
     instead of failing several cells later."""
-    d = gee_dir(site)
+    d = series_dir(site)
     cuts = sorted(d.glob("cuts_*.csv"))
     # The trajectory export covers all sites in one file, so it may sit in the
-    # site folder or in data/gee/ — look in both.
+    # site folder or one level up — look in both.
     traj = sorted(d.glob("*trajectory*.csv")) + \
-           sorted((_base("gee")).glob("*trajectory*.csv"))
+           sorted(series_root().glob("*trajectory*.csv"))
     return {
         "site": site,
+        "backend": backend(),
         "gee_dir": str(d.relative_to(ROOT)),
         "cut_years": sorted(int(f.stem.split("_")[-1]) for f in cuts
                             if f.stem.split("_")[-1].isdigit()),

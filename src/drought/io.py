@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .config import gee_dir
+from .config import series_dir as gee_dir
 
 INDEX_COLS = ("parcel_id", "area_ha", "elev_m", "lnf_code")
 INDICES = ("NDVI", "kNDVI", "NDMI", "NDRE")

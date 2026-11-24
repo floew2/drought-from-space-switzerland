@@ -568,14 +568,14 @@ def figure_purity_sensitivity(site, regime="intensive", path=None, cfg=None,
     C = cfg or CFG
     cur = C.project.current_year
     thr_used = C.mask.purity_min
-    from .config import ROOT
+    from .config import series_root
     if path is None:
-        cands = sorted((ROOT / C.paths.gee).glob(
+        cands = sorted(series_root().glob(
             f"purity_sensitivity_{site}_{regime}*.csv"))
         if not cands:
             raise FileNotFoundError(
                 f"no purity_sensitivity_{site}_{regime}*.csv in "
-                f"{ROOT / C.paths.gee} — run `drought ee sensitivity` first")
+                f"{series_root()} — run `drought swisseo sensitivity` or `drought ee sensitivity` first")
         path = cands[0]
     from .provenance import verify
     verify(path, "sensitivity")            # refuses a stale export, naming why

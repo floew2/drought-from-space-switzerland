@@ -29,7 +29,8 @@ import pandas as pd
 # --------------------------------------------------------------------------- #
 # Configuration
 # --------------------------------------------------------------------------- #
-from .config import CFG, figures_dir, gee_dir
+from .config import CFG, figures_dir, series_root
+from .config import series_dir as gee_dir
 
 CSV = None          # set by plot(); or pass a path directly
 
@@ -466,13 +467,12 @@ def _find_csv(site=None):
     so look in the site folder first (where you may have put it) and then in
     data/gee/ (where a multi-site file more naturally belongs).
     """
-    from .config import ROOT
     cands = []
     if site:
         cands += sorted(gee_dir(site).glob("*trajectory*.csv"))
-    cands += sorted((ROOT / CFG.paths.gee).glob("*trajectory*.csv"))
+    cands += sorted(series_root().glob("*trajectory*.csv"))
     if not cands:
-        where = f"{gee_dir(site)} or {ROOT / CFG.paths.gee}" if site else str(ROOT / CFG.paths.gee)
+        where = f"{gee_dir(site)} or {series_root()}" if site else str(series_root())
         raise FileNotFoundError(f"no *trajectory*.csv in {where}")
     return cands[0]
 
@@ -589,12 +589,11 @@ def compare_masks(site=None, paths=None, index=None, split_doy=190):
          "purity 1.00": "data/gee/trajectory_multi_p100.csv"}
     """
     from .config import CFG as _C
-    from .config import ROOT
     global INDEX
     if index:
         INDEX = index
     if paths is None:
-        found = sorted((ROOT / _C.paths.gee).glob("*trajectory*p*.csv"))
+        found = sorted(series_root().glob("*trajectory*p*.csv"))
         if len(found) < 2:
             raise FileNotFoundError(
                 "need at least two trajectory exports built from different "

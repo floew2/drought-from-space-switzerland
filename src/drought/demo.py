@@ -150,7 +150,7 @@ def run(fresh: bool = False) -> dict:
     mask_figures.figure_purity_map("linthebene", group="intensive")
 
     print("\n=== 2  grassland condition =====================================")
-    tpath = config.ROOT / config.CFG.paths.gee / "grassland_trajectory_multi.csv"
+    tpath = config.series_root() / "grassland_trajectory_multi.csv"
     traj = trajectory.plot(path=tpath, index="NDMI")
     summary["trajectory"] = {
         f"{r.site}/{r.regime}": {"integral_pct": round(float(r.integral_pct), 1),
@@ -174,7 +174,7 @@ def run(fresh: bool = False) -> dict:
     summary["detector"] = {s: _cuts(s) for s in ("linthebene", "rheintal")}
     for site, d in summary["detector"].items():
         results.update(f"detector.{site}", d,
-                       inputs=sorted(config.gee_dir(site).glob("cuts_*.csv")))
+                       inputs=sorted(config.series_dir(site).glob("cuts_*.csv")))
     results.load()                 # every section must be from the same settings and mask
     print(f"  results -> {results.path().relative_to(config.ROOT)}")
 

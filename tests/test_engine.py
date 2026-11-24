@@ -15,6 +15,12 @@ from drought.engine import cuts, imagery, session, stamp, tasks, trajectory
 from drought.provenance import ProvenanceError
 
 
+@pytest.fixture(autouse=True)
+def earth_engine_backend(monkeypatch):
+    """These tests are about the Earth Engine exports."""
+    monkeypatch.setattr(config.CFG, "backend", "gee")
+
+
 @pytest.fixture
 def fake_mask(monkeypatch):
     fp = {"path": "data/masks/grassland_mask_sg.tif", "sha256": "a" * 16, "res_m": 10.0,
