@@ -120,26 +120,47 @@ def test_20m_band_is_repeated_and_cut_on_the_10m_window(tmp_path):
     assert a[0].tolist() == [0, 1, 1, 2, 2, 3]
 
 
+def _stored(it, pl, tmp_site="linthebene"):
+    from drought.swisseo import store
+    return store.load(store.fetch(it, pl.win, pl.grass, tmp_site), pl.win)
+
+
 def test_indices_and_masks_from_one_mosaic(world):
     parcels, sess = world
     pl = extract.plan("linthebene", parcels)
     it = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 1),
                      dt.date(2026, 7, 1), session=sess)[0]
-    r = extract.process(it, pl)
+    r = extract.process(_stored(it, pl), it.doy, pl)
     ndvi, kndvi, ndmi, ndre, n = r["traj"]["intensive"]
-    assert ndvi == pytest.approx(NDVI, abs=1e-6)
-    assert kndvi == pytest.approx(np.tanh(NDVI ** 2), abs=1e-6)
-    assert ndmi == pytest.approx(NDMI, abs=1e-6)
-    assert ndre == pytest.approx(NDRE, abs=1e-6)
+    # stored as int16 x 10 000: equal to 1e-4
+    assert ndvi == pytest.approx(NDVI, abs=1e-4)
+    assert kndvi == pytest.approx(np.tanh(NDVI ** 2), abs=2e-4)
+    assert ndmi == pytest.approx(NDMI, abs=1e-4)
+    assert ndre == pytest.approx(NDRE, abs=1e-4)
     assert n == int(pl.regimes["intensive"].sum())        # nothing masked
     # the cloudy mosaic: the top 40 rows of the image are cloud, which covers
     # the top 20 rows of the mask
     cloudy = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 11),
                          dt.date(2026, 7, 11), session=sess)[0]
-    r2 = extract.process(cloudy, pl)
+    r2 = extract.process(_stored(cloudy, pl), cloudy.doy, pl)
     assert 40 < r2["cloud_pct"] < 60
     assert 0 < r2["traj"]["intensive"][4] < n
-    assert r2["traj"]["intensive"][2] == pytest.approx(NDMI, abs=1e-6)
+    assert r2["traj"]["intensive"][2] == pytest.approx(NDMI, abs=1e-4)
+
+
+def test_only_grassland_cells_are_stored(world):
+    parcels, sess = world
+    import rasterio
+
+    from drought.swisseo import store
+    pl = extract.plan("linthebene", parcels)
+    pl.grass[:, :10] = False                     # pretend: no grassland here
+    it = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 1),
+                     dt.date(2026, 7, 1), session=sess)[0]
+    with rasterio.open(store.fetch(it, pl.win, pl.grass, "linthebene")) as ds:
+        a = ds.read(1)
+        assert ds.dtypes[0] == "int16" and ds.descriptions == store.BANDS
+    assert (a[:, :10] == store.NODATA).all() and (a[:, 10:] != store.NODATA).all()
 
 
 def test_run_writes_and_registers_three_products(world):
@@ -155,23 +176,29 @@ def test_run_writes_and_registers_three_products(world):
 
     traj = pd.read_csv(next(f for f in files if "trajectory" in f.name))
     assert set(traj.year) == set(extract.years())
-    assert traj.NDMI.round(6).eq(round(NDMI, 6)).all()
+    assert (traj.NDMI - NDMI).abs().max() < 1e-4
 
     from drought.io import load_cuts
     cuts = load_cuts("linthebene", verbose=False)
     assert set(cuts.parcel_id) == set(parcels.parcel_id)
-    assert cuts.NDVI.round(6).eq(round(NDVI, 6)).all()
+    assert (cuts.NDVI - NDVI).abs().max() < 1e-4
 
-    # a second run reads nothing: every mosaic comes from the cache
+    # a new purity threshold: recomputed from disk, nothing downloaded
     def boom(*a, **k):
-        raise AssertionError("read a mosaic again")
-    import drought.swisseo.extract as ex
-    old = ex.process
-    ex.process = boom
+        raise AssertionError("downloaded a mosaic again")
+    from drought.swisseo import scene as sc
+    old = sc.clear_mask
+    sc.clear_mask = boom
     try:
-        extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
+        CFG.mask.purity_min, was = 0.4, CFG.mask.purity_min     # takes in the 0.5 strip
+        try:
+            files2 = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
+        finally:
+            CFG.mask.purity_min = was
     finally:
-        ex.process = old
+        sc.clear_mask = old
+    t2 = pd.read_csv(next(f for f in files2 if "trajectory" in f.name))
+    assert (t2.n_px.to_numpy() > traj.n_px.to_numpy()).all()
 
 
 def test_earth_engine_hash_and_records_are_unchanged_by_the_backend(monkeypatch):

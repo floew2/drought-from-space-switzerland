@@ -1,6 +1,6 @@
-"""Trajectory, purity sensitivity and cut series from swissEO, in one pass.
+"""Trajectory, purity sensitivity and cut series from swissEO.
 
-Each mosaic is read once per site, and all three products are taken from it:
+All three products are taken from each stored mosaic:
 
 trajectory   per management system, the mean of the four indices over the
              cells whose purity reaches mask.purity_min, and their count; kept
@@ -22,14 +22,15 @@ enough cells are clear, as in Earth Engine.
 
 Parcels are identified by parcel_id from `drought parcels ids` (src/drought/parcel_ids.py).
 
-Results per mosaic are cached under <paths.swisseo>/_cache/<CONFIG_HASH>/, so a
-run that stops resumes, and a second run costs nothing.
+Two steps per mosaic: download it once into store (cropped, cloud-masked
+indices on the grassland cells, see store.py), then compute the products from
+the stored file. A run that stops resumes, and a change to the purity
+threshold, the parcels or the windows recomputes locally without downloading.
 """
 
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,7 +39,7 @@ import numpy as np
 import pandas as pd
 
 from ..config import CFG, ROOT, series_dir, series_root
-from . import grid, scene, stac
+from . import grid, scene, stac, store
 
 __all__ = ["Plan", "parcels_table", "plan", "process", "run", "years"]
 
@@ -110,17 +111,13 @@ class Plan:
     site: str
     win: grid.Window
     regimes: dict[str, np.ndarray]          # regime -> pure cells (bool)
-    grass: np.ndarray                       # any group purity > 0: the cloud test
+    grass: np.ndarray                       # any group purity > 0: what is stored
     sens_cells: dict[str, np.ndarray]       # regime -> flat indices of sensitivity cells
     sens_class: dict[str, np.ndarray]       # regime -> purity class of those cells
     parcel_label: np.ndarray                # 0 none, k = row k-1 of `parcels`
     parcels: pd.DataFrame                   # parcel_id, area_ha, elev_m, lnf_code
     sample_ids: list[str]
     labelled: dict[int, list[str]] = field(default_factory=dict)
-
-    @property
-    def parcel_digest(self) -> str:
-        return hashlib.sha256("|".join(self.parcels.parcel_id).encode()).hexdigest()[:12]
 
 
 def _rasterize(geoms, values, win: grid.Window) -> np.ndarray:
@@ -201,28 +198,32 @@ def _in_window(doy: int, w) -> bool:
     return int(w[0]) <= doy <= int(w[1])
 
 
-def process(item: stac.Item, pl: Plan) -> dict:
-    """Everything the three products need from one mosaic, small enough to cache."""
-    ok = scene.clear_mask(item, pl.win)
+def process(ix: dict[str, np.ndarray], doy: int, pl: Plan) -> dict:
+    """Everything the three products need from one stored mosaic.
+
+    Args:
+        ix: The indices on the site window, NaN where not usable (store.load).
+        doy: Day of year of the mosaic.
+        pl: The site's plan.
+    """
+    valid = ~np.isnan(ix["NDVI"])
     n_grass = int(pl.grass.sum())
-    cloud_pct = 100.0 * (1 - (ok & pl.grass).sum() / n_grass) if n_grass else 100.0
+    cloud_pct = 100.0 * (1 - (valid & pl.grass).sum() / n_grass) if n_grass else 100.0
     out = {"cloud_pct": cloud_pct, "traj": {}, "sens": {}, "cuts": None}
-    usable = ok & pl.grass
-    if not usable.any():
+    if not (valid & pl.grass).any():
         return out
-    ix = scene.indices(item, pl.win, ok)
 
     for r, cells in pl.regimes.items():
-        sel = cells & ~np.isnan(ix["NDVI"])
-        n = int(sel.sum())
+        n = int((cells & valid).sum())
         if n:
-            out["traj"][r] = [float(np.nanmean(ix[i][cells])) for i in scene.INDICES] + [n]
+            with np.errstate(all="ignore"):
+                out["traj"][r] = [float(np.nanmean(ix[i][cells])) for i in scene.INDICES] + [n]
 
     if cloud_pct <= float(CFG.swisseo.max_site_cloud):
         w = getattr(CFG.gee.sensitivity.windows, pl.site, None)
-        if w is not None and _in_window(item.doy, w):
+        if w is not None and _in_window(doy, w):
             flat = ix[CFG.gee.sensitivity.index].ravel()
-            out["sens"] = {r: flat[c].astype("float16") for r, c in pl.sens_cells.items()}
+            out["sens"] = {r: flat[c] for r, c in pl.sens_cells.items()}
         lab = pl.parcel_label.ravel()
         has = lab > 0
         if has.any():
@@ -231,38 +232,6 @@ def process(item: stac.Item, pl: Plan) -> dict:
             g = d.groupby("k").agg(NDVI_median=("NDVI", "median"), NDVI_count=("NDVI", "count"),
                                    NDMI_median=("NDMI", "median"), NDMI_count=("NDMI", "count"))
             out["cuts"] = g.reindex(np.arange(1, len(pl.parcels) + 1))
-    return out
-
-
-def _cache_file(root: Path, item: stac.Item, pl: Plan) -> Path:
-    return root / pl.site / f"{item.id}_{pl.parcel_digest}.npz"
-
-
-def _save(path: Path, r: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    arrs = {"cloud_pct": np.array(r["cloud_pct"])}
-    for k, v in r["traj"].items():
-        arrs[f"traj_{k}"] = np.array(v, dtype=float)
-    for k, v in r["sens"].items():
-        arrs[f"sens_{k}"] = v
-    if r["cuts"] is not None:
-        arrs["cuts"] = r["cuts"].to_numpy(dtype=float)
-    tmp = path.with_suffix(".tmp.npz")
-    np.savez_compressed(tmp, **arrs)
-    tmp.replace(path)
-
-
-def _load(path: Path) -> dict:
-    z = np.load(path)
-    out = {"cloud_pct": float(z["cloud_pct"]), "traj": {}, "sens": {}, "cuts": None}
-    for k in z.files:
-        if k.startswith("traj_"):
-            out["traj"][k[5:]] = z[k].tolist()
-        elif k.startswith("sens_"):
-            out["sens"][k[5:]] = z[k]
-        elif k == "cuts":
-            out["cuts"] = pd.DataFrame(z[k], columns=["NDVI_median", "NDVI_count",
-                                                      "NDMI_median", "NDMI_count"])
     return out
 
 
@@ -305,8 +274,8 @@ def run(sites=None, only_years=None, workers: int = 4, dry_run: bool = False,
         only_years: Restrict to these years. The trajectory and the sensitivity
             are written only when every year was read (their content check
             requires all years); the cut series are written per year.
-        workers: Mosaics read in parallel.
-        dry_run: List how many mosaics each site and year has, read nothing.
+        workers: Mosaics downloaded in parallel.
+        dry_run: List how many mosaics each site and year has, download nothing.
         session, parcels: For tests.
 
     Returns:
@@ -320,14 +289,15 @@ def run(sites=None, only_years=None, workers: int = 4, dry_run: bool = False,
     sites = sites or list(dict.fromkeys([*CFG.gee.trajectory.sites, *CFG.gee.cuts.sites]))
     yrs = sorted(only_years) if only_years else years()
     complete = set(yrs) == set(years())
-    cache = series_root() / "_cache" / h
     traj_rows, written = [], []
     p_all = parcels
 
     for site in sites:
         if dry_run:
             for y in yrs:
-                print(f"  {site} {y}: {len(items_for(site, y, session))} mosaics")
+                its = items_for(site, y, session)
+                have = sum(store.path(site, i.id).exists() for i in its)
+                print(f"  {site} {y}: {len(its)} mosaics, {have} already on disk")
             continue
         if p_all is None:
             p_all = parcels_table()
@@ -338,19 +308,13 @@ def run(sites=None, only_years=None, workers: int = 4, dry_run: bool = False,
         sens = {r: [] for r in pl.regimes}
         for year in yrs:
             items = items_for(site, year, session)
-
-            def one(it, pl=pl):
-                f = _cache_file(cache, it, pl)
-                if f.exists():
-                    return it, _load(f)
-                with scene.gdal_env():
-                    r = process(it, pl)
-                _save(f, r)
-                return it, r
-
+            todo = [it for it in items if not store.path(site, it.id).exists()]
             with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
-                res = list(ex.map(one, items))
-            print(f"  {site} {year}: {len(items)} mosaics, "
+                list(ex.map(lambda it, pl=pl, s=site: store.fetch(it, pl.win, pl.grass, s), todo))
+            res = [(it, process(store.load(store.path(site, it.id), pl.win), it.doy, pl))
+                   for it in items]
+            print(f"  {site} {year}: {len(items)} mosaics ({len(todo)} downloaded, "
+                  f"{len(items) - len(todo)} on disk), "
                   f"{sum(1 for _, r in res if r['traj'])} with clear grassland")
 
             # trajectory

@@ -13,8 +13,9 @@ windows are read, over HTTP. No account, no quota.
 
 The outputs have the same columns and file names as the Earth Engine exports,
 so everything downstream is unchanged. They land in paths.swisseo and are
-registered with their provenance as they are written. Per-date results are
-cached, so an interrupted run resumes where it stopped.
+registered with their provenance as they are written. Each mosaic is
+downloaded once and kept as cropped, cloud-masked indices (store.py); every
+later run, with any purity threshold, computes from those files.
 """
 
 from __future__ import annotations
