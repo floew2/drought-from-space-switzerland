@@ -1,7 +1,9 @@
 """A stable id for every parcel, stored in the parcel data.
 
-The id is the parcel centroid in LV95, rounded to the metre: "2718345_1226789".
-It depends on the geometry alone, so any tool on any platform gives the same id
+The id is the parcel centroid in LV95, rounded to the metre, and its area in
+square metres: "2718345_1226789_6054". The area is part of it because two
+fields can share a centroid (a field inside a ring-shaped one). It depends on
+the geometry alone, so any tool on any platform gives the same id
 for the same field, and pasting it into a GIS finds the field. Labels and every
 per-parcel output refer to this id and nothing else.
 
@@ -23,9 +25,10 @@ __all__ = ["make_ids", "path", "read", "write"]
 
 
 def make_ids(geoms: gpd.GeoSeries) -> list[str]:
-    """Centroid in LV95, rounded to the metre, as "<E>_<N>"."""
-    c = geoms.to_crs(2056).centroid
-    return [f"{x:.0f}_{y:.0f}" for x, y in zip(c.x, c.y)]
+    """Centroid in LV95 and area, rounded to the metre: "<E>_<N>_<m2>"."""
+    g = geoms.to_crs(2056)
+    c = g.centroid
+    return [f"{x:.0f}_{y:.0f}_{a:.0f}" for x, y, a in zip(c.x, c.y, g.area)]
 
 
 def path(year: int | None = None) -> Path:
@@ -55,7 +58,7 @@ def write(year: int | None = None) -> Path:
                            geometry=g.geometry.values, crs=2056)
     dup = out.parcel_id[out.parcel_id.duplicated(keep=False)]
     if len(dup):
-        raise ValueError(f"{len(dup)} parcels share a centroid id, e.g. "
+        raise ValueError(f"{len(dup)} parcels share an id, e.g. "
                          f"{sorted(set(dup))[:5]}: check the delivery for duplicate geometries")
     p = path(year)
     p.parent.mkdir(parents=True, exist_ok=True)

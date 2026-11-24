@@ -588,7 +588,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     pa = sub.add_parser("parcels", help="the parcel file with stable ids").add_subparsers(
         dest="action", required=True, metavar="ACTION")
-    c = pa.add_parser("ids", help="add parcel_id (centroid, LV95, 1 m) -> "
+    c = pa.add_parser("ids", help="add parcel_id (centroid and area, LV95, 1 m) -> "
                       "data/parcels/parcels_<year>.shp")
     c.add_argument("--year", type=int, help="default: gee.parcels_year")
     c.set_defaults(func=_parcels)

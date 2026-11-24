@@ -210,8 +210,11 @@ def test_vhi_on_the_pure_cells_of_each_parcel(world, tmp_path):
     assert per.vhi_mean.tolist() == [30.0]
 
 
-def test_parcel_id_is_the_rounded_lv95_centroid():
+def test_parcel_id_is_lv95_centroid_and_area():
     from drought.parcel_ids import make_ids
-    g = gpd.GeoSeries([box(2718000, 1226000, 2718100, 1226200)], crs=2056)
-    assert make_ids(g) == ["2718050_1226100"]
-    assert make_ids(g.to_crs(4326)) == ["2718050_1226100"]     # any input CRS
+    outer = box(2718000, 1226000, 2718100, 1226200)
+    inner = box(2718040, 1226090, 2718060, 1226110)
+    g = gpd.GeoSeries([outer.difference(inner), inner], crs=2056)
+    # a ring and the field inside it share a centroid; the area tells them apart
+    assert make_ids(g) == ["2718050_1226100_19600", "2718050_1226100_400"]
+    assert make_ids(g.to_crs(4326)) == make_ids(g)              # any input CRS
