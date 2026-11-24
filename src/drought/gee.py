@@ -68,7 +68,7 @@ def render_settings(with_mask: bool = True) -> dict:
 
 # swisseo settings that change WHAT is measured. Where the catalogue lives, the
 # DEM (metadata only) and the VHI cross-check do not.
-_SWISSEO_UNHASHED = ("stac", "dem", "parcels_file", "vhi_collection", "vhi_asset", "vhi_nodata")
+_SWISSEO_UNHASHED = ("stac", "dem", "vhi_collection", "vhi_asset", "vhi_nodata")
 
 
 def backend_settings() -> dict:

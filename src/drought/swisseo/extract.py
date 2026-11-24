@@ -76,14 +76,8 @@ def parcels_table(path: Path | None = None):
     from ..mask.parcels import _year_files
     from ..mask.settings import CODE_FIELD_CANDIDATES
 
-    own = getattr(CFG.swisseo, "parcels_file", None)
-    path = path or (ROOT / own if own else _year_files()[int(CFG.gee.parcels_year)])
-    print(f"  parcels: {path}")
-    import warnings
-    with warnings.catch_warnings():
-        # multipart polygons in the cadastre: read as multipolygons, harmless
-        warnings.filterwarnings("ignore", message=".*organizePolygons|.*Simple Geometry")
-        g = gpd.read_file(path)
+    path = path or _year_files()[int(CFG.gee.parcels_year)]
+    g = gpd.read_file(path)
     if g.crs is None:
         raise ValueError(f"{path}: no CRS")
     g = g.to_crs(2056)

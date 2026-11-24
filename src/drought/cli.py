@@ -404,8 +404,7 @@ def _swisseo_check_ids(sites) -> None:
             print(j[missing | code_off | area_off].head(10).to_string(index=False))
     if bad:
         sys.exit("parcel ids do not match: the labels cannot be scored on swissEO series "
-                 "until they do. Point swisseo.parcels_file (config.local.yaml) at the exact "
-                 "file uploaded to Earth Engine as the parcel asset.")
+                 "until they do (gee.parcels_year and the shapefile must be the ones uploaded)")
     print("  parcel ids match")
 
 

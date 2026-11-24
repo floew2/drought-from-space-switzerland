@@ -261,10 +261,6 @@ swisseo:
   # is dropped from the sensitivity composite and the cut series. Stands in for
   # the granule-level CLOUDY_PIXEL_PERCENTAGE filter (gee.*.max_scene_cloud).
   max_site_cloud: 80
-  # The parcel file uploaded to Earth Engine as gee.assets.parcels + parcels_year.
-  # Parcel ids are row positions in THAT file, so the labels only line up when
-  # it is the same file. null: the parcels_year file under paths.parcels.
-  parcels_file: null
   # Optional DEM GeoTIFF in LV95 for the parcels' elev_m (metadata only).
   # null leaves elev_m empty.
   dem: null
