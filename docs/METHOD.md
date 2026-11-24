@@ -25,6 +25,14 @@ the Alpstein.
 | Sentinel-2 L2A, 10 m, 2019–2026 | spectral indices, Cloud Score+ cloud mask | condition and cuts |
 | Nutzungsflächen 2017–2025, Kanton St.Gallen (used with permission) | yearly field outlines with land-use codes | which pixels are grassland, of which kind |
 | MeteoSwiss station St. Gallen, 1991–2026 | daily precipitation and temperature | independent check |
+| swissEO VHI (swisstopo, MeteoSwiss), 2026 | Vegetation Health Index, 10 m, daily | independent check |
+
+The results in this document were extracted in Google Earth Engine. The
+default source is now swisstopo's swissEO S2-SR v200, the same Sentinel-2
+data co-registered and reprojected to LV95, with its own cloud mask
+(OmniCloudMask), terrain-shadow and snow layers, read locally
+(`drought swisseo run`). The two backends never mix: each file records which
+one produced it.
 
 2026 is compared with 2019–2025. That baseline includes the 2022 drought, so
 the 2026 anomaly is, if anything, understated. Everything is in CH1903+ / LV95

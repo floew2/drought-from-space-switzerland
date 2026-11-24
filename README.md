@@ -122,15 +122,18 @@ stamped SYNTHETIC; they show what each step does, not what actually happened in 
 
 ## Running on real data
 
-To run the tool on real satellite data, a Google Earth Engine account is needed
-plus a set of vector parcel data from Canton St. Gallen over several years to
-create the grassland mask.
+The satellite data comes from swisstopo's
+[swissEO S2-SR](https://www.swisstopo.admin.ch/en/satelliteimage-swisseo-s2-sr)
+(Sentinel-2 surface reflectance for Switzerland, v200), read locally: no
+account is needed. Google Earth Engine remains a second option
+(`backend: gee`), and the results above were produced with it. The grassland
+mask needs the canton's parcel data over several years.
 
 | step                              | needs                                        | open? |
 |-----------------------------------|----------------------------------------------|---|
 | rainfall and water balance        | internet                                     | **yes**, MeteoSwiss Open Data |
 | grassland mask                    | parcel polygons per year                     | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/); earlier years are not open. With one year, every field is kept. |
-| grassland condition               | the grassland mask + an Earth Engine project | **yes**, free for noncommercial use ([terms](https://earthengine.google.com/terms), [quotas](https://developers.google.com/earth-engine/guides/noncommercial_tiers)) |
+| grassland condition               | the grassland mask + internet                | **yes**, swissEO via the [swisstopo STAC catalogue](https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swisseo_s2-sr_v200); or an Earth Engine project, free for noncommercial use |
 | mowing scores (cutting frequency) | hand labels                                  | **no**; make your own with the labelling widget |
 
 The mask in this study was built from the yearly parcel layers 2017–2025,
@@ -140,10 +143,11 @@ parcel data is not redistributed; nothing in `data/` is committed.
 ```mermaid
 flowchart LR
   P["parcel polygons"] --> M["mask build<br/>PSF purity, 10 m"]
-  M --> U["upload + stamp-mask"]
-  U --> E["Earth Engine exports"]
-  S2["Sentinel-2 + Cloud Score+"] --> E
+  S2["swissEO S2-SR v200<br/>OmniCloudMask, terrain, snow"] --> E["local extraction"]
+  M --> E
   E --> A["trajectories · sensitivity · cuts"]
+  V["swissEO VHI"] --> X["cross-check"]
+  M --> X
   L["hand labels"] --> A
   W["MeteoSwiss"] --> R["precipitation"]
   A & R --> O["figures + results.json"]
@@ -155,34 +159,19 @@ flowchart LR
 **Setup**
 
 ```bash
-uv sync --extra dev --extra ee        # or: pip install -e ".[dev,ee]"
-earthengine authenticate              # once; allow Drive access
+uv sync --extra dev                   # or: pip install -e ".[dev]"
 ```
 
-Put your Earth Engine project in `config.local.yaml` (git-ignored):
-
-```yaml
-gee:
-  project: <your-ee-project>
-```
-
-Exports go to your Google Drive and are downloaded from there. Parcel shapefiles go to `data/nutzungen/<year>/`, hand
-labels to `data/labels/`.
+Parcel shapefiles go to `data/nutzungen/<year>/`, hand labels to `data/labels/`.
 
 **Steps**
 
 ```bash
 drought mask build                    # purity mask -> data/masks/grassland_mask_sg.tif
-```
-
-Upload the GeoTIFF once in the [Earth Engine Code Editor](https://code.earthengine.google.com/)
-(Assets → New → GeoTIFF, name `grassland_mask_sg`, pyramiding **SAMPLE**), then:
-
-```bash
-drought ee stamp-mask                 # checks the asset against the local file
-drought ee trajectory                 # site-mean index series
-drought ee sensitivity                # purity-threshold sweep
-drought ee cuts --labelled-only       # per-field series for the labelled fields
+drought swisseo items                 # mosaics per site and year in the catalogue
+drought swisseo check-ids             # labels' parcel ids = local ids? (needs an ee cut export)
+drought swisseo run                   # trajectory, sensitivity, cut series -> data/swisseo/
+drought swisseo vhi                   # swisstopo's VHI on the same cells, current year
 drought trajectory plot
 drought sensitivity plot
 drought precip --download
@@ -191,10 +180,18 @@ drought cuts labels --site linthebene
 drought results show                  # every headline number, refused if stale
 ```
 
-Each `ee` command starts the export, waits, downloads and registers the file; an
-interrupted one can simply be re-run. The trajectory export used about
-25 EECU-hours of the free 150 a month. Every file carries a record of the
-settings and mask that produced it, and loading refuses a mismatch.
+`swisseo run` reads only the site windows of each mosaic and caches the
+result per mosaic, so an interrupted run resumes where it stopped. Every file
+carries a record of the settings, mask and backend that produced it, and
+loading refuses a mismatch.
+
+**Earth Engine instead:** `uv sync --extra ee`, `earthengine authenticate`, put
+`backend: gee` and `gee: {project: <your-ee-project>}` in `config.local.yaml`
+(git-ignored), upload the mask GeoTIFF in the
+[Code Editor](https://code.earthengine.google.com/) (name `grassland_mask_sg`,
+pyramiding **SAMPLE**), then `drought ee stamp-mask`, `drought ee trajectory`,
+`drought ee sensitivity`, `drought ee cuts --labelled-only`. Exports go to
+Google Drive and are downloaded and registered from there.
 
 To label mowing events for evaluation, in Jupyter:
 
@@ -228,7 +225,8 @@ drought-from-space-switzerland/
 
 Code: MIT ([LICENSE](LICENSE)). Contains modified Copernicus Sentinel data
 (2019–2026), processed in Google Earth Engine; Cloud Score+ (Pasquarella et al.
-2023). Station data: MeteoSwiss Open Data (CC BY 4.0), *Quelle: MeteoSchweiz*.
+2023). swissEO S2-SR and VHI: © swisstopo, Contains modified Copernicus
+Sentinel data 2019–2026 ([terms](https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices)). Station data: MeteoSwiss Open Data (CC BY 4.0), *Quelle: MeteoSchweiz*.
 Elevation: CGIAR-CSI SRTM 90 m. Field geometries: Nutzungsflächen 2017–2025,
 © Kanton St.Gallen, provided by the Amt für Raumentwicklung und Geoinformation
 (AREG), used with permission and not redistributed. The cantonal geodata have
