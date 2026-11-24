@@ -1,11 +1,10 @@
 """The downloaded data, kept on disk: one GeoTIFF per mosaic and site.
 
 Each file holds NDVI, NDMI and NDRE on the site window (10 m, LV95), as int16
-scaled by 10 000, with -32768 as no data. A cell holds a value only if it is
-usable (clear, lit, not snow: scene.clear_mask) and grassland: purity > 0 in
-any management group of the mask. Every purity threshold therefore works from
-these files without a new download; only a mask that adds grassland outside
-the stored cells needs one (delete the site's folder).
+scaled by 10 000, with -32768 as no data. Every cell of the window is kept
+where it is usable (clear, lit, not snow: scene.clear_mask). The files do not
+depend on the mask, so any mask, purity threshold or parcel set works from
+them without a new download.
 
     <paths.swisseo>/scenes/<site>/<mosaic id>.tif
 """
@@ -30,12 +29,12 @@ def path(site: str, item_id: str) -> Path:
     return series_root() / "scenes" / site / f"{item_id}.tif"
 
 
-def fetch(item, win: grid.Window, grass: np.ndarray, site: str) -> Path:
+def fetch(item, win: grid.Window, site: str) -> Path:
     """Download one mosaic for one site and store it. Returns the file."""
     import rasterio
 
     with scene.gdal_env():
-        ok = scene.clear_mask(item, win) & grass
+        ok = scene.clear_mask(item, win)
         ix = scene.indices(item, win, ok)
     arr = np.full((len(BANDS), *win.shape), NODATA, np.int16)
     for i, b in enumerate(BANDS):

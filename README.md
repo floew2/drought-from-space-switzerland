@@ -181,8 +181,8 @@ drought results show                  # every headline number, refused if stale
 ```
 
 `swisseo run` downloads each mosaic once and keeps it in `data/swisseo/scenes/`:
-the site window, cloud-masked, as NDVI, NDMI and NDRE on the grassland cells
-(int16, a few GB in all). Everything is computed from those files, so an
+the whole site window, cloud-masked, as NDVI, NDMI and NDRE (int16, roughly
+8 GB in all). Everything is computed from those files, so an
 interrupted run resumes, and a new purity threshold or mask needs no download. Every file
 carries a record of the settings, mask and backend that produced it, and
 loading refuses a mismatch.

@@ -22,8 +22,8 @@ enough cells are clear, as in Earth Engine.
 
 Parcels are identified by parcel_id from `drought parcels ids` (src/drought/parcel_ids.py).
 
-Two steps per mosaic: download it once into store (cropped, cloud-masked
-indices on the grassland cells, see store.py), then compute the products from
+Two steps per mosaic: download it once into store (the site window, cropped and
+cloud-masked, see store.py), then compute the products from
 the stored file. A run that stops resumes, and a change to the purity
 threshold, the parcels or the windows recomputes locally without downloading.
 """
@@ -111,7 +111,7 @@ class Plan:
     site: str
     win: grid.Window
     regimes: dict[str, np.ndarray]          # regime -> pure cells (bool)
-    grass: np.ndarray                       # any group purity > 0: what is stored
+    grass: np.ndarray                       # any group purity > 0: the cloud share
     sens_cells: dict[str, np.ndarray]       # regime -> flat indices of sensitivity cells
     sens_class: dict[str, np.ndarray]       # regime -> purity class of those cells
     parcel_label: np.ndarray                # 0 none, k = row k-1 of `parcels`
@@ -310,7 +310,7 @@ def run(sites=None, only_years=None, workers: int = 4, dry_run: bool = False,
             items = items_for(site, year, session)
             todo = [it for it in items if not store.path(site, it.id).exists()]
             with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
-                list(ex.map(lambda it, pl=pl, s=site: store.fetch(it, pl.win, pl.grass, s), todo))
+                list(ex.map(lambda it, pl=pl, s=site: store.fetch(it, pl.win, s), todo))
             res = [(it, process(store.load(store.path(site, it.id), pl.win), it.doy, pl))
                    for it in items]
             print(f"  {site} {year}: {len(items)} mosaics ({len(todo)} downloaded, "

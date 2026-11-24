@@ -122,7 +122,7 @@ def test_20m_band_is_repeated_and_cut_on_the_10m_window(tmp_path):
 
 def _stored(it, pl, tmp_site="linthebene"):
     from drought.swisseo import store
-    return store.load(store.fetch(it, pl.win, pl.grass, tmp_site), pl.win)
+    return store.load(store.fetch(it, pl.win, tmp_site), pl.win)
 
 
 def test_indices_and_masks_from_one_mosaic(world):
@@ -148,19 +148,20 @@ def test_indices_and_masks_from_one_mosaic(world):
     assert r2["traj"]["intensive"][2] == pytest.approx(NDMI, abs=1e-4)
 
 
-def test_only_grassland_cells_are_stored(world):
+def test_stored_file_is_the_whole_window_independent_of_the_mask(world):
     parcels, sess = world
     import rasterio
-
     from drought.swisseo import store
     pl = extract.plan("linthebene", parcels)
-    pl.grass[:, :10] = False                     # pretend: no grassland here
-    it = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 1),
-                     dt.date(2026, 7, 1), session=sess)[0]
-    with rasterio.open(store.fetch(it, pl.win, pl.grass, "linthebene")) as ds:
+    cloudy = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 11),
+                         dt.date(2026, 7, 11), session=sess)[0]
+    with rasterio.open(store.fetch(cloudy, pl.win, "linthebene")) as ds:
         a = ds.read(1)
         assert ds.dtypes[0] == "int16" and ds.descriptions == store.BANDS
-    assert (a[:, :10] == store.NODATA).all() and (a[:, 10:] != store.NODATA).all()
+    # cloud rows empty, everything else kept, grassland or not
+    cloud = (a == store.NODATA).all(axis=1)
+    assert cloud.any() and not cloud.all()
+    assert (a[~cloud] != store.NODATA).all()
 
 
 def test_run_writes_and_registers_three_products(world):
