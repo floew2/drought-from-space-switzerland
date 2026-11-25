@@ -1,12 +1,14 @@
 """The downloaded data, kept on disk: one GeoTIFF per mosaic and site.
 
-Each file holds NDVI, NDMI and NDRE on the site window (10 m, LV95), as int16
-scaled by 10 000, with -32768 as no data. Every cell of the window is kept
-where it is usable (clear, lit, not snow: scene.clear_mask). The files do not
-depend on the mask, so any mask, purity threshold or parcel set works from
-them without a new download.
+Each file holds, on the site window (10 m, LV95), int16:
+    NDVI, NDMI, NDRE      scaled by 10 000; -32768 where not covered, or under
+                          thick cloud or cloud shadow (scene.NEVER_USABLE)
+    CLOUD, TERRAIN, SCL   swissEO's quality layers, unchanged
+Nothing in a file depends on the mask or on the cloud rule: `load` applies the
+current rule (scene.usable), so any mask, purity threshold, parcel set or
+cloud rule works from the same files without a new download.
 
-    <paths.swisseo>/scenes/<site>/<mosaic id>.tif
+    <paths.scenes>/<site>/<mosaic id>.tif
 """
 
 from __future__ import annotations
@@ -21,26 +23,26 @@ from . import grid, scene
 
 __all__ = ["BANDS", "fetch", "load", "path"]
 
-BANDS = ("NDVI", "NDMI", "NDRE")
+INDEX_BANDS = ("NDVI", "NDMI", "NDRE")
+BANDS = (*INDEX_BANDS, *scene.QUALITY)
 SCALE = 10_000
 NODATA = -32768
+ATTEMPTS = 4          # a read cut off in transit is retried; waits 5, 20, 45 s
 
 
 def path(site: str, item_id: str) -> Path:
     return series_root() / "scenes" / site / f"{item_id}.tif"
 
 
-ATTEMPTS = 4          # a read cut off in transit is retried; waits 5, 20, 45 s
-
-
-def _download(item, win: grid.Window) -> dict[str, np.ndarray]:
+def _download(item, win: grid.Window) -> tuple[dict, dict]:
     from rasterio.errors import RasterioError
 
     for attempt in range(1, ATTEMPTS + 1):
         try:
             with scene.gdal_env():
-                ok = scene.clear_mask(item, win)
-                return scene.indices(item, win, ok)
+                q = scene.quality(item, win)
+                keep = ~np.isin(q["CLOUD"], scene.NEVER_USABLE)
+                return scene.indices(item, win, keep), q
         except (RasterioError, OSError):
             if attempt == ATTEMPTS:
                 raise
@@ -57,12 +59,14 @@ def fetch(item, win: grid.Window, site: str) -> Path:
     """
     import rasterio
 
-    ix = _download(item, win)
+    ix, q = _download(item, win)
     arr = np.full((len(BANDS), *win.shape), NODATA, np.int16)
-    for i, b in enumerate(BANDS):
+    for i, b in enumerate(INDEX_BANDS):
         v = ix[b]
         good = ~np.isnan(v)
         arr[i][good] = np.round(np.clip(v[good], -1, 1) * SCALE).astype(np.int16)
+    for i, b in enumerate(scene.QUALITY, start=len(INDEX_BANDS)):
+        arr[i] = q[b].astype(np.int16)
     p = path(site, item.id)
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".part.tif")
@@ -78,7 +82,8 @@ def fetch(item, win: grid.Window, site: str) -> Path:
 
 
 def load(p: Path, win: grid.Window) -> dict[str, np.ndarray]:
-    """The stored indices as float32, NaN where no data, plus kNDVI."""
+    """The stored indices as float32, NaN wherever the current rule rejects the
+    pixel (scene.usable) or there is no data; plus kNDVI."""
     import rasterio
 
     with rasterio.open(p) as ds:
@@ -87,8 +92,16 @@ def load(p: Path, win: grid.Window) -> dict[str, np.ndarray]:
                 tuple(round(v, 3) for v in win.transform[:6]):
             raise ValueError(f"{p}: stored on another window; delete the site's "
                              "scenes folder and run again")
-        a = ds.read().astype("float32")
-    a[a == NODATA] = np.nan
-    out = {b: a[i] / SCALE for i, b in enumerate(BANDS)}
+        if tuple(ds.descriptions) != BANDS:
+            raise ValueError(f"{p}: bands {ds.descriptions}, expected {BANDS}: stored by "
+                             "an older version; delete the scenes folder and run again")
+        a = ds.read()
+    q = {b: a[i].astype(np.uint8) for i, b in enumerate(scene.QUALITY, start=len(INDEX_BANDS))}
+    ok = scene.usable(q)
+    out = {}
+    for i, b in enumerate(INDEX_BANDS):
+        v = a[i].astype("float32")
+        v[(a[i] == NODATA) | ~ok] = np.nan
+        out[b] = v / SCALE
     out["kNDVI"] = np.tanh(out["NDVI"] ** 2)
     return out

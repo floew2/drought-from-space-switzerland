@@ -4,6 +4,7 @@ fake session for the STAC catalogue."""
 from __future__ import annotations
 
 import datetime as dt
+import pathlib
 
 import geopandas as gpd
 import numpy as np
@@ -37,7 +38,7 @@ def _tif(path, arr, x0, y0, res, dtype, desc=None):
     return str(path)
 
 
-def _mosaic(folder, cloudy_rows=0):
+def _mosaic(folder, cloudy_rows=0, cloud_class=1):
     """One mosaic around the mask: 10 m bands on a 10 m grid, 20 m bands on a
     20 m grid whose origin lies OFF the mask's 20 m phase."""
     folder.mkdir(parents=True, exist_ok=True)
@@ -50,7 +51,7 @@ def _mosaic(folder, cloudy_rows=0):
             hrefs[k] = _tif(folder / f"{k}.tif", np.full((n10 // 2 + 1, n10 // 2 + 1), v),
                             gx - 10, gy + 10, 20, "uint16")
     cloud = np.zeros((n10, n10))
-    cloud[:cloudy_rows] = 1
+    cloud[:cloudy_rows] = cloud_class
     hrefs["cloudmask_10m"] = _tif(folder / "cloud.tif", cloud, gx, gy, 10, "uint8")
     hrefs["terrainmask_10m"] = _tif(folder / "terrain.tif", np.full((n10, n10), 40),
                                     gx, gy, 10, "uint8")
@@ -189,8 +190,8 @@ def test_run_writes_and_registers_three_products(world):
     def boom(*a, **k):
         raise AssertionError("downloaded a mosaic again")
     from drought.swisseo import scene as sc
-    old = sc.clear_mask
-    sc.clear_mask = boom
+    old = sc.quality
+    sc.quality = boom
     try:
         CFG.mask.purity_min, was = 0.4, CFG.mask.purity_min     # takes in the 0.5 strip
         try:
@@ -198,7 +199,7 @@ def test_run_writes_and_registers_three_products(world):
         finally:
             CFG.mask.purity_min = was
     finally:
-        sc.clear_mask = old
+        sc.quality = old
     t2 = pd.read_csv(next(f for f in files2 if "trajectory" in f.name))
     assert (t2.n_px.to_numpy() > traj.n_px.to_numpy()).all()
 
@@ -255,7 +256,7 @@ def test_a_read_cut_off_in_transit_is_retried(world, monkeypatch):
     from drought.swisseo import store
     parcels, sess = world
     monkeypatch.setattr(store.time, "sleep", lambda s: None)
-    real, calls = scene.clear_mask, []
+    real, calls = scene.quality, []
 
     def flaky(item, win):
         calls.append(item.id)
@@ -263,7 +264,7 @@ def test_a_read_cut_off_in_transit_is_retried(world, monkeypatch):
             raise RasterioIOError("TIFFReadEncodedTile() failed")
         return real(item, win)
 
-    monkeypatch.setattr(scene, "clear_mask", flaky)
+    monkeypatch.setattr(scene, "quality", flaky)
     files = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
     assert any("trajectory" in f.name for f in files)
 
@@ -274,17 +275,34 @@ def test_a_mosaic_that_keeps_failing_stops_before_any_result(world, monkeypatch)
     from drought.swisseo import store
     parcels, sess = world
     monkeypatch.setattr(store.time, "sleep", lambda s: None)
-    real = scene.clear_mask
+    real = scene.quality
 
     def broken_2020(item, win):
         if item.id.startswith("2020"):
             raise RasterioIOError("TIFFReadEncodedTile() failed")
         return real(item, win)
 
-    monkeypatch.setattr(scene, "clear_mask", broken_2020)
+    monkeypatch.setattr(scene, "quality", broken_2020)
     assert extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1) == []
     stored = list((store.path("linthebene", "x").parent).glob("*.tif"))
     assert len(stored) == 8                              # all but the 2020 mosaic
-    monkeypatch.setattr(scene, "clear_mask", real)       # the network is back
+    monkeypatch.setattr(scene, "quality", real)       # the network is back
     files = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
     assert any("trajectory" in f.name for f in files)
+
+
+def test_the_cloud_rule_changes_without_a_new_download(world, monkeypatch):
+    """Thin cloud is stored with its class; whether it counts is decided at load."""
+    from drought.swisseo import store
+    parcels, _ = world
+    pl = extract.plan("linthebene", parcels)
+    hrefs = _mosaic(pathlib.Path(store.path("linthebene", "x").parent.parent) / "thin",
+                    cloudy_rows=40, cloud_class=2)
+    it = stac._parse({"id": "2026-07-21t103000", "properties": {"datetime": "2026-07-21T10:30:00Z"},
+                      "assets": {f"x_{k}.tif": {"href": h} for k, h in hrefs.items()}})
+    f = store.fetch(it, pl.win, "linthebene")
+    strict = store.load(f, pl.win)
+    monkeypatch.setattr(CFG.swisseo, "cloud_clear", [0, 2])
+    lenient = store.load(f, pl.win)
+    assert np.isnan(strict["NDMI"]).sum() > 0
+    assert np.isnan(lenient["NDMI"]).sum() == 0

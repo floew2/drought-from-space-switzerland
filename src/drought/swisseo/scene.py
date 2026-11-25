@@ -1,13 +1,19 @@
-"""One swissEO mosaic inside one site window: the usable pixels and the indices.
+"""One swissEO mosaic inside one site window: indices and quality layers.
 
-Usable means all of:
-  - covered: every band read has a reflectance (0 is swissEO's no-data);
-  - clear: CLOUDMASK-10M (OmniCloudMask) in swisseo.cloud_clear;
-  - lit: TERRAINMASK-10M not a cast shadow or no-data, and a solar incidence
-    angle below swisseo.terrain_max_incidence;
-  - not snow: SCL-20M not in swisseo.scl_drop.
+The quality layers are kept as swissEO delivers them, and the rule that
+decides which pixels are usable is applied later (`usable`), so it can change
+without a new download:
+  - CLOUDMASK-10M (OmniCloudMask): 0 clear, 1 thick cloud, 2 thin cloud,
+    3 cloud shadow; usable if in swisseo.cloud_clear.
+  - TERRAINMASK-10M: solar incidence angle 0-180 deg, 200 cast shadow, 255 no
+    data; usable if not in swisseo.terrain_drop and below
+    swisseo.terrain_max_incidence.
+  - SCL-20M (scene classification): usable if not in swisseo.scl_drop
+    (0 no data, 11 snow).
+Under thick cloud and cloud shadow (NEVER_USABLE) no rule could use a pixel,
+so the indices are not kept there.
 
-The indices are those of the Earth Engine backend, from the same bands:
+The indices, from the same bands as before:
     NDVI  = (B8  - B4)  / (B8  + B4)          10 m
     kNDVI = tanh(NDVI^2)                       (sigma = 0.5 (NIR + Red))
     NDMI  = (B8A - B11) / (B8A + B11)          20 m, repeated 2 x 2
@@ -25,7 +31,8 @@ import numpy as np
 from ..config import CFG
 from .grid import Window
 
-__all__ = ["BANDS", "INDICES", "clear_mask", "gdal_env", "indices", "read_band"]
+__all__ = ["BANDS", "INDICES", "NEVER_USABLE", "QUALITY", "gdal_env", "indices",
+           "quality", "read_band", "usable"]
 
 INDICES = ("NDVI", "kNDVI", "NDMI", "NDRE")
 BANDS = {"B4": "b04_10m", "B8": "b08_10m", "B5": "b05_20m", "B8A": "b8a_20m",
@@ -83,15 +90,24 @@ def read_band(href: str, win: Window, fill: int = 0) -> np.ndarray:
     return a[r0:r0 + win.height, c0:c0 + win.width]
 
 
-def clear_mask(item, win: Window) -> np.ndarray:
-    """Clear and lit and not snow, from the three quality layers. Cheap: uint8."""
+NEVER_USABLE = (1, 3)        # thick cloud, cloud shadow
+QUALITY = ("CLOUD", "TERRAIN", "SCL")
+
+
+def quality(item, win: Window) -> dict[str, np.ndarray]:
+    """The three quality layers as delivered, on the window grid (uint8)."""
+    return {"CLOUD": read_band(item.href(CLOUD), win, fill=255),
+            "TERRAIN": read_band(item.href(TERRAIN), win, fill=255),
+            "SCL": read_band(item.href(SCL), win, fill=0)}
+
+
+def usable(q: dict[str, np.ndarray]) -> np.ndarray:
+    """Which pixels the current rules accept: clear, lit, not snow."""
     c = CFG.swisseo
-    cloud = read_band(item.href(CLOUD), win, fill=255)
-    ok = np.isin(cloud, list(c.cloud_clear))
-    terr = read_band(item.href(TERRAIN), win, fill=255)
-    ok &= ~np.isin(terr, list(c.terrain_drop)) & (terr < float(c.terrain_max_incidence))
-    scl = read_band(item.href(SCL), win, fill=0)
-    ok &= ~np.isin(scl, list(c.scl_drop))
+    ok = np.isin(q["CLOUD"], list(c.cloud_clear))
+    t = q["TERRAIN"]
+    ok &= ~np.isin(t, list(c.terrain_drop)) & (t < float(c.terrain_max_incidence))
+    ok &= ~np.isin(q["SCL"], list(c.scl_drop))
     return ok
 
 
@@ -107,12 +123,11 @@ def _nd(a, b):
         return (a - b) / (a + b)
 
 
-def indices(item, win: Window, ok: np.ndarray) -> dict[str, np.ndarray]:
-    """The four indices on the window grid, NaN wherever not usable."""
+def indices(item, win: Window, keep: np.ndarray) -> dict[str, np.ndarray]:
+    """NDVI, NDMI and NDRE on the window grid, NaN where not kept or not covered."""
     r = {k: _refl(read_band(item.href(v), win)) for k, v in BANDS.items()}
-    ndvi = _nd(r["B8"], r["B4"])
-    out = {"NDVI": ndvi, "kNDVI": np.tanh(ndvi ** 2),
-           "NDMI": _nd(r["B8A"], r["B11"]), "NDRE": _nd(r["B8A"], r["B5"])}
+    out = {"NDVI": _nd(r["B8"], r["B4"]), "NDMI": _nd(r["B8A"], r["B11"]),
+           "NDRE": _nd(r["B8A"], r["B5"])}
     for v in out.values():
-        v[~ok] = np.nan
+        v[~keep] = np.nan
     return out
