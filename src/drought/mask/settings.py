@@ -6,7 +6,7 @@ setting has one name and one source. Edit config.yaml, not this file.
 
 from __future__ import annotations
 
-from ..config import CFG
+from drought.core.config import CFG
 
 PATTERN = "nutzungen_*.shp"          # yearly deliveries, searched recursively
 CRS = "EPSG:2056"                    # CH1903+ / LV95; asserted on load

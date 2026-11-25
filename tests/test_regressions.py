@@ -15,7 +15,9 @@ import yaml
 from shapely import affinity
 from shapely.geometry import Polygon, box
 
-from drought import config, detect, mask
+from drought import mask
+from drought.analysis import detect
+from drought.core import config
 from drought.mask.parcels import _overlap_years, _repair
 from drought.mask.purity import _burn
 
@@ -182,7 +184,7 @@ def test_config_round_trip():
     provenance would describe a configuration that never ran.
     """
     raw = yaml.safe_load((config.ROOT / "config.yaml").read_text())
-    assert config.load(local=False).to_dict() == raw
+    assert config.load().to_dict() == raw
     assert yaml.safe_load(yaml.safe_dump(config.CFG.to_dict())) == config.CFG.to_dict()
     assert config.CFG.get("detect.min_drop_abs") == raw["detect"]["min_drop_abs"]
     assert config.CFG.get("no.such.key", "absent") == "absent"
@@ -227,7 +229,7 @@ def test_area_ratio_reference_is_clipped_to_the_raster():
 
 
 def test_label_last_cut_ignores_cuts_after_end_and_unpaired_parcels():
-    from drought import metrics
+    from drought.analysis import metrics
     lab = {"a|2026": [150, 200, 240], "a|2024": [160, 220], "a|2025": [170, 210],
            "b|2026": [180]}                       # b has no baseline year
     t = metrics.labels_last_cut_paired(lab, end=228)

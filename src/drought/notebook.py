@@ -12,11 +12,14 @@ real data, or that leaks a local path.
 
 from __future__ import annotations
 
+import logging
 import re
 import tempfile
 from pathlib import Path
 
-from .config import ROOT
+from drought.core.config import ROOT
+
+log = logging.getLogger(__name__)
 
 NOTEBOOK = ROOT / "notebooks" / "walkthrough.ipynb"
 _HOME = re.compile(r"(/Users/|/home/|C:\\\\Users\\\\)[^\s'\"]*?(?=data/|output/|notebooks/)")
@@ -32,8 +35,17 @@ def _clean(nb) -> None:
         if c.cell_type != "code":
             continue
         c.metadata.pop("execution", None)
-        c.outputs = [o for o in c.get("outputs", [])
-                     if "image/png" not in o.get("data", {})]
+        merged: list = []
+        for o in c.get("outputs", []):
+            if "image/png" in o.get("data", {}):
+                continue
+            # logging flushes per message: join consecutive pieces of one stream
+            if (o.output_type == "stream" and merged and merged[-1].output_type == "stream"
+                    and merged[-1].name == o.name):
+                merged[-1].text += o.text
+                continue
+            merged.append(o)
+        c.outputs = merged
         for o in c.outputs:
             if o.output_type == "stream":
                 o.text = _scrub(o.text)
@@ -57,5 +69,5 @@ def run(check: bool = False, path: Path = NOTEBOOK) -> Path:
     _clean(nb)
     out = Path(tempfile.mkdtemp()) / path.name if check else path
     nbformat.write(nb, out)
-    print(f"  {path.relative_to(ROOT)}: all cells ran" + ("" if check else "; saved"))
+    log.info(f"  {path.relative_to(ROOT)}: all cells ran" + ("" if check else "; saved"))
     return out

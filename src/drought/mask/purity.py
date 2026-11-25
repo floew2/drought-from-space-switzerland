@@ -13,7 +13,7 @@ from collections.abc import Iterable
 import numpy as np
 from PIL import Image, ImageDraw
 
-from .settings import PSF_MODEL, PSF_MTF, RES, SUBPIXEL
+from drought.mask.settings import PSF_MODEL, PSF_MTF, RES, SUBPIXEL
 
 __all__ = ["measured_response_fwhm", "psf_caption", "psf_params", "psf_sigma_m",
            "purity_psf"]
@@ -129,7 +129,7 @@ def measured_response_fwhm(model: str | None = None, sigma_m: float | None = Non
             vs.append(float(p[n // 2, c]))
     o = np.argsort(xs)
     x, v = np.asarray(xs)[o], np.asarray(vs)[o]
-    v = v / v.max()
+    v = v / np.max(v)
     i0, i1 = np.where(v >= 0.5)[0][[0, -1]]
     left = np.interp(0.5, [v[i0 - 1], v[i0]], [x[i0 - 1], x[i0]])
     right = np.interp(0.5, [v[i1 + 1], v[i1]], [x[i1 + 1], x[i1]])

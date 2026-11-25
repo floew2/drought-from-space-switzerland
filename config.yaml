@@ -1,9 +1,10 @@
 # =============================================================================
 # Drought 2026 — project configuration
 #
-# Everything that was previously scattered across notebook cell 1 lives here.
-# One source, so a figure can always be traced to the settings that made it:
-# `drought.config.provenance()` dumps this alongside any result.
+# Every setting in one place, so a figure can always be traced to the settings
+# that made it: each output carries a provenance record of the settings that
+# shaped it (src/drought/core/provenance.py). The file is validated on load
+# (src/drought/core/schema.py): a misspelt or misplaced key fails at once.
 # =============================================================================
 
 project:
@@ -12,24 +13,21 @@ project:
   # 2026 anomaly measured against it is conservative — a floor, not a ceiling.
   baseline_years: [2019, 2020, 2021, 2022, 2023, 2024, 2025]
 
-# Where the Sentinel-2 series come from. swisseo (default): swisstopo's
-# swissEO S2-SR v200, read locally; no account needed. gee: Google Earth Engine
-# exports (`drought ee …`). Series from the two never mix: each has its own
-# folder (paths.swisseo / paths.gee), and the backend enters the CONFIG_HASH.
-backend: swisseo
-
 paths:
-  gee: data/gee            # GEE exports, one subfolder per site
-  swisseo: data/swisseo    # swissEO series, one subfolder per site
+  scenes: data/scenes      # downloaded swissEO mosaics, one folder per site (`drought fetch`)
+  series: data/series      # series computed from them, one folder per site
   labels: data/labels      # hand-labelled reference data, one file per site
-  masks: data/masks        # grassland mask GeoTIFF (uploaded to GEE)
-  parcels: data/nutzungen  # yearly Nutzungsflaechen shapefiles, searched
-  parcel_ids: data/parcels # parcels_<year>.shp with parcel_id (`drought parcels ids`)
+  masks: data/masks        # grassland purity mask GeoTIFF (`drought mask`)
+  parcels: data/nutzungen  # yearly Nutzungsflaechen deliveries, searched
                            # RECURSIVELY (each year often sits in its own folder)
-  station: data/station    # MeteoSwiss daily series, if cached locally
+  parcel_ids: data/parcels # parcels_<year>.shp with a stable parcel_id (`drought mask`)
+  station: data/station    # MeteoSwiss daily series (`drought precip`)
   figures: output/figures  # one subfolder per site
   tables: output/tables
 
+# Areas of interest. Any polygon in Switzerland can also be given on the
+# command line as a GeoJSON file (`--aoi my_area.geojson`); its name is the file
+# name. Products other than `fetch` need the mask to cover the area.
 sites:
   linthebene:
     label: Linthebene
@@ -44,6 +42,13 @@ sites:
     note: summering area; alpine cloud leaves too few gap-free baseline years
     bbox_wgs84: [9.25, 47.15, 9.48, 47.30]
     stratum: summering
+
+# The part of the season a site's anomaly is quoted over (DOY), for the purity
+# sensitivity, the per-field anomaly and the VHI cross-check. A summering area's
+# season is the grazing period, not May-August (HANDOVER §8).
+windows:
+  default: [121, 243]      # 1 May - 31 Aug
+  alpstein: [196, 258]     # 15 Jul - 15 Sep
 
 # --- land use ---------------------------------------------------------------
 # Verified against the official LNF code list. Two lists, not four: the split
@@ -116,8 +121,8 @@ mask:
   #     sigma_optics = sqrt(-ln(MTF_optics) / (2 pi^2 f_N^2)) = 4.35 m
   # The combined response has FWHM 12.7 m. A bare Gaussian with sigma 4.35 m
   # would be only 10.2 m wide — never state the two as one Gaussian.
-  # Instrument response only: L2A resampling and the LV95/UTM grid offset widen
-  # it further.
+  # Instrument response only: L2A resampling and swissEO's reprojection to LV95
+  # widen it further.
   psf_mtf_nyquist: 0.25    # system MTF at Nyquist; ESA specifies 0.15-0.30 for the 10 m bands
   # box_gauss  detector box (x) Gaussian optics, as above. The settled model.
   # gauss      one Gaussian fitted to the whole system MTF (sigma 5.30 m),
@@ -129,16 +134,14 @@ mask:
   # full extent of the parcel data.
   clip_bbox_lv95: [2708100, 1221140, 2775020, 1265540]
 
-  purity_min: 0.9        # threshold applied in GEE, not baked into the file.
-                         # On the previous 20 m mask the NDMI anomaly varied by
-                         # under 1% of its own size across the full range
-                         # 0.05-0.95, at two independent sites. NOT YET RE-RUN
-                         # on the 10 m mask — do not quote it for 10 m.
+  purity_min: 0.9        # applied when the series are computed, not baked into
+                         # the file, so it can change without rebuilding the mask
+                         # or downloading again (`drought sensitivity` sweeps it).
 
 # --- cleaning ---------------------------------------------------------------
 clean:
   min_parcel_coverage: 0.6   # of that parcel's own best observation
-  # Cloud Score+ at cs_cdf >= 0.50 lets thin haze through. Its fingerprint is
+  # A cloud mask lets some thin haze through. Its fingerprint is
   # wavelength-ordered: scattering inflates the short bands, so RED is hit hard,
   # RED-EDGE less, SWIR almost not at all. Detect it by the DISAGREEMENT between
   # NDVI and NDMI rather than by an absolute threshold.
@@ -221,9 +224,87 @@ precip:
   include_water_balance: true   # P - ET0 (Hargreaves). An index of atmospheric
                                 # demand against supply, NOT a soil water balance
 
+# --- swissEO (swisstopo) -------------------------------------------------------
+# Sentinel-2 surface reflectance, swissEO S2-SR v200: one mosaic per satellite
+# pass, Cloud Optimised GeoTIFFs in LV95 on a 10 m grid that coincides with the
+# mask grid. Only the site windows are read (HTTP range requests), once
+# (`drought fetch`); every product is computed from the stored files.
+swisseo:
+  stac: https://data.geo.admin.ch/api/stac/v0.9
+  collection: ch.swisstopo.swisseo_s2-sr_v200
+  scale: 0.0001            # reflectance = DN * scale + offset
+  offset: -0.1             # NOT optional: a normalised difference is not offset-invariant
+  season_doy: [60, 305]    # what `fetch` downloads per year: 1 March - 1 November
+  workers: 4               # mosaics downloaded in parallel
+  # Which stored pixels count as usable. Applied when computing, never at
+  # download, so a change here needs no new download.
+  usable:
+    # CLOUDMASK-10M (OmniCloudMask): 0 clear, 1 thick cloud, 2 thin cloud,
+    # 3 cloud shadow. 1 and 3 are never stored.
+    cloud_clear: [0]
+    # TERRAINMASK-10M: solar incidence angle 0-180 deg, 200 cast shadow, 255 no data
+    terrain_drop: [200, 255]
+    terrain_max_incidence: 90  # at >= 90 deg the slope faces away from the sun
+    scl_drop: [0, 11]        # SCL-20M: 0 no data, 11 snow / ice
+  # Vegetation Health Index (swisstopo, MeteoSwiss): the independent cross-check.
+  vhi:
+    collection: ch.swisstopo.swisseo_vhi_v100
+    asset: vegetation-10m  # all vegetation; the forest layer is not used
+    nodata: [110, 255]
+  # False-colour composite for the imagery-to-mask figure: the clearest
+  # mosaic in this window. For looking only.
+  rgb:
+    year: 2025             # an ordinary summer, so the meadows look like meadows
+    doy: [152, 243]        # June to August
+
+# The cadastre the per-parcel work runs on: its parcel_id is what labels and
+# per-parcel outputs refer to.
+parcels:
+  year: 2025
+
+# --- products ------------------------------------------------------------------
+# Site-mean index series per management system (`drought condition`).
+condition:
+  # FULL season, not the anomaly window: the series shows WHEN 2026 diverged,
+  # which needs the curve either side of it, and the alpine site needs the
+  # spring shoulder for snowmelt timing.
+  doy: [60, 305]
+  sites: [rheintal, linthebene, alpstein]
+  min_pixels: 2000         # drop dates where cloud left too little of a site
+
+# Anomaly against the purity threshold (`drought sensitivity`).
+sensitivity:
+  index: NDMI
+  n_classes: 20            # 0.05-wide purity bins
+  # A parcel enters if any cell inside it reaches this. 0.0 = every parcel, so
+  # the sweep covers the population the anomaly is reported for (HANDOVER §8).
+  strict_purity: 0.0
+  # Share (%) of a site's grassland not usable above which a mosaic is left
+  # out of the composite.
+  max_site_cloud: 80
+
+# Per-parcel series for cut detection (`drought cuts`).
+cuts:
+  sites: [linthebene, rheintal]  # Linthebene first: best revisit density
+  doy: [60, 305]           # need the build-up before the first cut
+  sample_n: 250            # parcels per site, plus every hand-labelled one
+  min_area_ha: 0.5         # before the edge buffer
+  edge_buffer_m: -15       # mixed edge pixels destroy the step signal
+  seed: 42
+  max_site_cloud: 80       # as sensitivity.max_site_cloud
+
+# Per-field anomaly maps (`drought anomaly`): each parcel's mean index over the
+# site's window, in the current year against its own baseline years, in
+# standard deviations.
+anomaly:
+  index: NDMI
+  sites: [rheintal, linthebene, alpstein]
+  min_obs: 3               # usable observations a parcel-year needs
+  min_baseline_years: 4    # baseline years a parcel needs for a z-score
+
 # --- synthetic data -----------------------------------------------------------
-# The real inputs cannot be published, so `make demo` runs the whole pipeline
-# on synthetic data calibrated to the real distributions (see
+# The real inputs cannot be published, so `make demo` runs the pipeline on
+# synthetic data calibrated to the real distributions (see
 # drought/synthetic/targets.py for every target and where it came from).
 # Activating this profile redirects EVERY path below, so a synthetic file can
 # never land beside a real one, and stamps every saved figure as synthetic.
@@ -231,8 +312,8 @@ synthetic:
   seed: 2026
   scale: 0.125             # share of the real parcel count to generate
   paths:
-    gee: data/synthetic/gee
-    swisseo: data/synthetic/swisseo
+    scenes: data/synthetic/scenes
+    series: data/synthetic/series
     labels: data/synthetic/labels
     masks: data/synthetic/masks
     parcels: data/synthetic/nutzungen
@@ -240,110 +321,6 @@ synthetic:
     station: data/synthetic/station
     figures: output/synthetic/figures
     tables: output/synthetic/tables
-
-# --- swissEO (swisstopo) -------------------------------------------------------
-# Sentinel-2 surface reflectance, swissEO S2-SR v200: one mosaic per orbit and
-# date, Cloud Optimised GeoTIFFs in LV95 on a 10 m grid that coincides with the
-# mask grid. Only the site windows are read (HTTP range requests). Read by
-# `drought swisseo …` (src/drought/swisseo/). The windows, sample sizes and
-# pixel minimums in gee.trajectory / gee.sensitivity / gee.cuts apply to both
-# backends; the Cloud Score+ thresholds in gee.clear_threshold do not.
-swisseo:
-  stac: https://data.geo.admin.ch/api/stac/v0.9
-  collection: ch.swisstopo.swisseo_s2-sr_v200
-  scale: 0.0001            # reflectance = DN * scale + offset
-  offset: -0.1             # NOT optional: a normalised difference is not offset-invariant
-  # CLOUDMASK-10M (OmniCloudMask): 0 clear, 1 thick cloud, 2 thin cloud, 3 cloud shadow
-  cloud_clear: [0]
-  # TERRAINMASK-10M: solar incidence angle 0-180 deg, 200 cast shadow, 255 no data
-  terrain_drop: [200, 255]
-  terrain_max_incidence: 90  # at >= 90 deg the slope faces away from the sun
-  scl_drop: [0, 11]        # SCL-20M: 0 no data, 11 snow / ice
-  # Share (%) of a site's grassland cells that are not clear above which a date
-  # is dropped from the sensitivity composite and the cut series. Stands in for
-  # the granule-level CLOUDY_PIXEL_PERCENTAGE filter (gee.*.max_scene_cloud).
-  max_site_cloud: 80
-  # Optional DEM GeoTIFF in LV95 for the parcels' elev_m (metadata only).
-  # null leaves elev_m empty.
-  dem: null
-  # Vegetation Health Index, swisstopo / MeteoSwiss: the cross-check.
-  vhi_collection: ch.swisstopo.swisseo_vhi_v100
-  vhi_asset: vegetation-10m  # all vegetation; the forest layer is not used
-  vhi_nodata: [110, 255]
-
-# --- Earth Engine ------------------------------------------------------------
-# Read directly by the Python exports (`drought ee …`, src/drought/engine/).
-gee:
-  # The Earth Engine project holding the assets. Empty on purpose: it is yours,
-  # not the repository's. Set it in config.local.yaml (git-ignored):
-  #   gee: {project: <your-project>}
-  project: null
-  drive_folder: drought-from-space       # Google Drive folder the exports land in
-  assets:
-    mask: grassland_mask_sg              # uploaded in the Code Editor, then `drought ee stamp-mask`
-    parcels: parcels_                    # + year: data/parcels/parcels_<year>.shp, uploaded
-  parcels_year: 2025                     # the cadastre the per-parcel work runs on
-  parcel_code_field: lnf_code
-  # Cloud Score+ cs_cdf threshold: a pixel is used only if cs_cdf >= this.
-  # 0.60 everywhere except the cut extraction (decided 2026-10-12, METHOD §3.1, §5.2):
-  # - The frozen cut detector was labelled, scored and frozen on series
-  #   extracted at 0.50. Changing its input would invalidate that score.
-  #   0.50 also keeps more dates, which cut timing needs; the detector's
-  #   persistence rule rejects single hazy dates downstream.
-  # - The purity sensitivity tests the condition anomaly, so it must see the
-  #   same pixels as the trajectory that produces it: 0.60 (was 0.50).
-  clear_threshold:
-    cuts: 0.50
-    sensitivity: 0.60
-    trajectory: 0.60
-    map: 0.60                            # unused since the interactive scripts were removed;
-    hotspots: 0.60                       # kept so existing exports keep their CONFIG_HASH
-  # Purity sensitivity: a parcel enters the test if any cell inside it reaches
-  # this. 0.0 = every parcel, so the sweep covers the population the anomaly is
-  # reported for (HANDOVER §8). 0.90 restricts it to large compact fields and
-  # isolates contamination from composition; run it only if the 0.0 sweep drifts.
-  strict_purity: 0.0
-
-  # False-colour composite for the imagery-to-mask figure (`drought ee rgb`).
-  # For looking only; not part of the CONFIG_HASH.
-  rgb:
-    year: 2025                 # an ordinary summer, so the meadows look like meadows
-    doy: [152, 243]            # June to August
-    bands: [B8, B4, B3]        # NIR, red, green
-
-  # --- drought.engine: the three exports, run from Python -------------------
-  trajectory:
-    # FULL season, not the anomaly window: the trajectory shows WHEN 2026
-    # diverged, which needs the curve either side of it, and the alpine site
-    # needs the spring shoulder for snowmelt timing.
-    doy: [60, 305]                       # 1 March - 1 November
-    sites: [rheintal, linthebene, alpstein]
-    scale_m: 10                          # native mask resolution: never pyramid purity
-    min_pixels: 2000                     # drop dates where cloud left too little of a site
-  sensitivity:
-    index: NDMI
-    n_classes: 20                        # 0.05-wide purity bins
-    max_scene_cloud: 80
-    scale_m: 10
-    # The window the anomaly is quoted over. Alpstein is a summering area: its
-    # season is the grazing period, not May-August (HANDOVER §8).
-    windows:
-      linthebene: [121, 243]             # 1 May - 31 Aug
-      rheintal: [121, 243]
-      alpstein: [196, 258]               # 15 Jul - 15 Sep
-  cuts:
-    sites: [linthebene, rheintal]        # Linthebene first: best revisit density
-    doy: [60, 305]                       # need the build-up before the first cut
-    # Newest first: tasks run in submission order, so a run cut short still
-    # holds 2026 and the most recent baseline years.
-    years_newest_first: true
-    sample_n: 250                        # parcels per site
-    min_area_ha: 0.5                     # before the edge buffer
-    edge_buffer_m: -15                   # mixed edge pixels destroy the step signal
-    scale_m: 10
-    seed: 42
-    max_scene_cloud: 80
-    mgrs_tile: null                      # e.g. "32TNT"; null keeps both tiles
 
 # --- provenance --------------------------------------------------------------
 provenance:

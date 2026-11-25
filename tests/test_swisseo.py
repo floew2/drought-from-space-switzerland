@@ -1,261 +1,100 @@
-"""The swissEO backend, offline: small GeoTIFFs stand in for the mosaics and a
-fake session for the STAC catalogue."""
+"""swissEO end to end, offline: fetch -> store -> products -> runner.
+
+Small GeoTIFFs stand in for the mosaics and a fake catalogue for STAC
+(conftest.world).
+"""
 
 from __future__ import annotations
 
-import datetime as dt
-import pathlib
-
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-import rasterio
-from rasterio.transform import from_origin
-from shapely.geometry import box
+from conftest import X0, Y0, N, mosaic, ndmi, tif
 
-from drought import config, gee, provenance
-from drought.config import CFG
-from drought.swisseo import extract, grid, scene, stac
+from drought.core import config, grid, provenance
+from drought.core.config import CFG
+from drought.sources import fetch, scene, store
 
-X0, Y0, N = 2_720_000.0, 1_230_000.0, 40          # mask: 40 x 40 cells of 10 m
-DN = {"b04_10m": 1100, "b08_10m": 3100, "b05_20m": 1600, "b8a_20m": 3100, "b11_20m": 2100}
-# reflectance = DN * 1e-4 - 0.1
-NDVI = (0.21 - 0.01) / (0.21 + 0.01)
-NDMI = (0.21 - 0.11) / (0.21 + 0.11)
-NDRE = (0.21 - 0.06) / (0.21 + 0.06)
+SITE = "linthebene"
 
 
-def _tif(path, arr, x0, y0, res, dtype, desc=None):
-    arr = np.asarray(arr)
-    arr = arr[None] if arr.ndim == 2 else arr
-    with rasterio.open(path, "w", driver="GTiff", width=arr.shape[2], height=arr.shape[1],
-                       count=arr.shape[0], dtype=dtype, crs="EPSG:2056",
-                       transform=from_origin(x0, y0, res, res)) as ds:
-        ds.write(arr.astype(dtype))
-        for i, d in enumerate(desc or [], 1):
-            ds.set_band_description(i, d)
-    return str(path)
+def _fetch(years=None):
+    return fetch.run([SITE], years or config.years(), workers=1)
 
 
-def _mosaic(folder, cloudy_rows=0, cloud_class=1):
-    """One mosaic around the mask: 10 m bands on a 10 m grid, 20 m bands on a
-    20 m grid whose origin lies OFF the mask's 20 m phase."""
-    folder.mkdir(parents=True, exist_ok=True)
-    gx, gy, n10 = X0 - 200, Y0 + 200, N + 40
-    hrefs = {}
-    for k, v in DN.items():
-        if k.endswith("10m"):
-            hrefs[k] = _tif(folder / f"{k}.tif", np.full((n10, n10), v), gx, gy, 10, "uint16")
-        else:
-            hrefs[k] = _tif(folder / f"{k}.tif", np.full((n10 // 2 + 1, n10 // 2 + 1), v),
-                            gx - 10, gy + 10, 20, "uint16")
-    cloud = np.zeros((n10, n10))
-    cloud[:cloudy_rows] = cloud_class
-    hrefs["cloudmask_10m"] = _tif(folder / "cloud.tif", cloud, gx, gy, 10, "uint8")
-    hrefs["terrainmask_10m"] = _tif(folder / "terrain.tif", np.full((n10, n10), 40),
-                                    gx, gy, 10, "uint8")
-    hrefs["scl_20m"] = _tif(folder / "scl.tif", np.full((n10 // 2 + 1, n10 // 2 + 1), 4),
-                            gx - 10, gy + 10, 20, "uint8")
-    return hrefs
+def _no_download(monkeypatch):
+    def boom(*a, **k):
+        raise AssertionError("downloaded a mosaic")
+    monkeypatch.setattr(scene, "quality", boom)
+    monkeypatch.setattr(scene, "read_band", boom)
 
 
-class _Resp:
-    def __init__(self, page): self.page = page
-    def raise_for_status(self): pass
-    def json(self): return self.page
-
-
-class _Session:
-    """Answers every items query with the mosaics whose date falls in the range."""
-
-    def __init__(self, items): self.items = items
-
-    def get(self, url, params=None, timeout=None):
-        a, b = params["datetime"].split("/")
-        a, b = a[:10], b[:10]
-        feats = [{"id": i, "properties": {"datetime": f"{d}T10:30:00Z"},
-                  "assets": {f"x_mosaic_{d}t103000_{k}.tif": {"href": h}
-                             for k, h in hrefs.items()}}
-                 for i, (d, hrefs) in self.items.items() if a <= d <= b]
-        return _Resp({"features": feats, "links": []})
-
-
-@pytest.fixture
-def world(tmp_path, monkeypatch):
-    """A tiny site: mask, two mown parcels, one mosaic a year (two in 2026)."""
-    from pyproj import Transformer
-
-    monkeypatch.setattr(CFG, "backend", "swisseo")
-    for k in ("swisseo", "masks", "labels", "figures"):
-        monkeypatch.setattr(CFG.paths, k, str(tmp_path / k))
-    monkeypatch.setattr(gee, "_remember", lambda dest, h: None)
-    monkeypatch.setattr(CFG.gee.trajectory, "min_pixels", 10)
-    monkeypatch.setattr(CFG.gee.cuts, "min_area_ha", 0.5)
-
-    purity = np.full((4, N, N), 0.95, "float32")
-    purity[:, :, :5] = 0.5                                     # an impure strip
-    _tif(config.mask_path(), purity, X0, Y0, 10, "float32",
-         ["mown", "grazed", "intensive", "extensive"])
-    # site bbox: the mask, 25 m inside, in WGS84
-    bb = Transformer.from_crs(2056, 4326, always_xy=True).transform_bounds(
-        X0 + 25, Y0 - N * 10 + 25, X0 + N * 10 - 25, Y0 - 25)
-    monkeypatch.setattr(CFG.sites.linthebene, "bbox_wgs84", list(bb))
-
-    parcels = gpd.GeoDataFrame(
-        {"parcel_id": [f"{i:020x}" for i in (10, 11)], "lnf_code": [613, 611],
-         "area_ha": [1.44, 1.44]},
-        geometry=[box(X0 + 60, Y0 - 180, X0 + 180, Y0 - 60),
-                  box(X0 + 220, Y0 - 340, X0 + 340, Y0 - 220)], crs=2056)
-    items = {}
-    for y in extract.years():
-        items[f"{y}-07-01"] = (f"{y}-07-01", _mosaic(tmp_path / "img" / str(y)))
-    items["2026-07-11"] = ("2026-07-11", _mosaic(tmp_path / "img" / "c", cloudy_rows=40))
-    return parcels, _Session(items)
-
-
+# --------------------------------------------------------------------------- #
+# Reading swissEO
+# --------------------------------------------------------------------------- #
 def test_20m_band_is_repeated_and_cut_on_the_10m_window(tmp_path):
     # 20 m cells numbered by column; a window starting 10 m into the first cell
-    f = _tif(tmp_path / "c.tif", np.tile(np.arange(10), (10, 1)), 0, 200, 20, "uint16")
+    f = tif(tmp_path / "c.tif", np.tile(np.arange(10), (10, 1)), 0, 200, 20, "uint16")
     a = scene.read_band(f, grid.Window(10, 190, 6, 2))
     assert a[0].tolist() == [0, 1, 1, 2, 2, 3]
 
 
-def _stored(it, pl, tmp_site="linthebene"):
-    from drought.swisseo import store
-    return store.load(store.fetch(it, pl.win, tmp_site), pl.win)
+def test_site_window_lies_on_the_20m_grid_and_ignores_the_mask(world):
+    w = grid.site_window(SITE)
+    assert w.x0 % 20 == 0 and w.y0 % 20 == 0
+    assert w.width * 10 % 20 == 0 and w.height * 10 % 20 == 0
 
 
-def test_indices_and_masks_from_one_mosaic(world):
-    parcels, sess = world
-    pl = extract.plan("linthebene", parcels)
-    it = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 1),
-                     dt.date(2026, 7, 1), session=sess)[0]
-    r = extract.process(_stored(it, pl), it.doy, pl)
-    ndvi, kndvi, ndmi, ndre, n = r["traj"]["intensive"]
-    # stored as int16 x 10 000: equal to 1e-4
-    assert ndvi == pytest.approx(NDVI, abs=1e-4)
-    assert kndvi == pytest.approx(np.tanh(NDVI ** 2), abs=2e-4)
-    assert ndmi == pytest.approx(NDMI, abs=1e-4)
-    assert ndre == pytest.approx(NDRE, abs=1e-4)
-    assert n == int(pl.regimes["intensive"].sum())        # nothing masked
-    # the cloudy mosaic: the top 40 rows of the image are cloud, which covers
-    # the top 20 rows of the mask
-    cloudy = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 11),
-                         dt.date(2026, 7, 11), session=sess)[0]
-    r2 = extract.process(_stored(cloudy, pl), cloudy.doy, pl)
-    assert 40 < r2["cloud_pct"] < 60
-    assert 0 < r2["traj"]["intensive"][4] < n
-    assert r2["traj"]["intensive"][2] == pytest.approx(NDMI, abs=1e-4)
+# --------------------------------------------------------------------------- #
+# fetch and the store
+# --------------------------------------------------------------------------- #
+def test_fetch_stores_every_mosaic_and_records_the_catalogue(world):
+    assert _fetch() == []
+    cur = int(CFG.project.current_year)
+    assert len(store.catalogue(SITE, cur)) == 2
+    assert all(store.complete(SITE, y) for y in config.years())
+    assert store.complete(SITE, cur, "vhi")
+    calls = world["catalogue"].calls
+    assert _fetch() == []                                   # nothing new to download
+    assert world["catalogue"].calls > calls                 # but the catalogue is asked again
 
 
-def test_stored_file_is_the_whole_window_independent_of_the_mask(world):
-    parcels, sess = world
+def test_dry_run_downloads_nothing(world):
+    fetch.run([SITE], config.years(), workers=1, dry_run=True)
+    assert not any(store.complete(SITE, y) for y in config.years())
+
+
+def test_stored_file_keeps_the_quality_layers_and_the_whole_window(world):
     import rasterio
-
-    from drought.swisseo import store
-    pl = extract.plan("linthebene", parcels)
-    cloudy = stac.search(CFG.sites.linthebene.bbox_wgs84, dt.date(2026, 7, 11),
-                         dt.date(2026, 7, 11), session=sess)[0]
-    with rasterio.open(store.fetch(cloudy, pl.win, "linthebene")) as ds:
-        a = ds.read(1)
-        assert ds.dtypes[0] == "int16" and ds.descriptions == store.BANDS
-    # cloud rows empty, everything else kept, grassland or not
-    cloud = (a == store.NODATA).all(axis=1)
-    assert cloud.any() and not cloud.all()
-    assert (a[~cloud] != store.NODATA).all()
+    _fetch([int(CFG.project.current_year)])
+    cur = int(CFG.project.current_year)
+    with rasterio.open(store.path(SITE, f"{cur}-07-11t103000")) as ds:
+        assert tuple(ds.descriptions) == store.BANDS and ds.dtypes[0] == "int16"
+        ndmi_band, cloud = ds.read(2), ds.read(4)
+    thick = cloud == 1
+    assert thick.any() and not thick.all()
+    assert (ndmi_band[thick] == store.NODATA).all()          # never usable: not kept
+    assert (ndmi_band[~thick] != store.NODATA).all()         # everything else kept
 
 
-def test_run_writes_and_registers_three_products(world):
-    parcels, sess = world
-    files = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
-    kinds = {f.name.split("_")[0] for f in files}
-    assert {"grassland", "purity", "cuts"} <= kinds
-    for f in files:
-        kind = ("trajectory" if "trajectory" in f.name else
-                "sensitivity" if "sensitivity" in f.name else "cuts")
-        rec = provenance.verify(f, kind)
-        assert rec["settings"]["backend"] == "swisseo"
-
-    traj = pd.read_csv(next(f for f in files if "trajectory" in f.name))
-    assert set(traj.year) == set(extract.years())
-    assert (traj.NDMI - NDMI).abs().max() < 1e-4
-
-    from drought.io import load_cuts
-    cuts = load_cuts("linthebene", verbose=False)
-    assert set(cuts.parcel_id) == set(parcels.parcel_id)
-    assert (cuts.NDVI - NDVI).abs().max() < 1e-4
-
-    # a new purity threshold: recomputed from disk, nothing downloaded
-    def boom(*a, **k):
-        raise AssertionError("downloaded a mosaic again")
-    from drought.swisseo import scene as sc
-    old = sc.quality
-    sc.quality = boom
-    try:
-        CFG.mask.purity_min, was = 0.4, CFG.mask.purity_min     # takes in the 0.5 strip
-        try:
-            files2 = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
-        finally:
-            CFG.mask.purity_min = was
-    finally:
-        sc.quality = old
-    t2 = pd.read_csv(next(f for f in files2 if "trajectory" in f.name))
-    assert (t2.n_px.to_numpy() > traj.n_px.to_numpy()).all()
-
-
-def test_earth_engine_hash_and_records_are_unchanged_by_the_backend(monkeypatch):
-    monkeypatch.setattr(CFG, "backend", "gee")
-    s = gee.render_settings(with_mask=False)
-    assert "backend" not in s and "swisseo" not in s
-    assert "backend" not in provenance.settings("trajectory")
-    h_gee = gee.expected_hash(with_mask=False)
-    monkeypatch.setattr(CFG, "backend", "swisseo")
-    assert gee.expected_hash(with_mask=False) != h_gee
-
-
-def test_series_from_another_backend_are_refused(world, monkeypatch):
-    parcels, sess = world
-    files = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
-    monkeypatch.setattr(CFG, "backend", "gee")
-    with pytest.raises(provenance.ProvenanceError) as exc:
-        provenance.verify(files[0], "trajectory")
-    assert exc.value.field == "backend"
-
-
-def test_vhi_on_the_pure_cells_of_each_parcel(world, tmp_path):
-    from drought.swisseo import vhi
-
-    parcels, _ = world
-    a = np.full((N + 40, N + 40), 30, "uint8")
-    a[:20 + 20] = 110                                  # no data over the top 20 mask rows
-    f = _tif(tmp_path / "vhi.tif", a, X0 - 200, Y0 + 200, 10, "uint8")
-    sess = _Session({"v": ("2026-07-01", {"vegetation-10m": f})})
-    out = vhi.run(sites=["linthebene"], parcels=parcels, session=sess, workers=1)
-    series = pd.read_csv(out[0])
-    per = pd.read_csv(out[1], dtype={"parcel_id": str})
-    assert series.vhi_mean.eq(30).all() and (series.n_px > 0).all()
-    # the first parcel lies in the no-data rows, the second does not
-    assert per.parcel_id.tolist() == [parcels.parcel_id[1]]
-    assert per.vhi_mean.tolist() == [30.0]
-
-
-def test_parcel_id_is_lv95_centroid_and_area():
-    from drought.parcel_ids import make_ids
-    outer = box(2718000, 1226000, 2718100, 1226200)
-    inner = box(2718040, 1226090, 2718060, 1226110)
-    g = gpd.GeoSeries([outer.difference(inner), inner], crs=2056)
-    # a ring and the field inside it share a centroid; the area tells them apart
-    assert make_ids(g) == ["2718050_1226100_19600", "2718050_1226100_400"]
-    assert make_ids(g.to_crs(4326)) == make_ids(g)              # any input CRS
+def test_the_cloud_rule_changes_without_a_new_download(world, monkeypatch):
+    cur = int(CFG.project.current_year)
+    world["catalogue"].add(CFG.swisseo.collection, f"{cur}-07-21t103000", f"{cur}-07-21",
+                           mosaic(world["tmp"] / "img" / "thin", cloudy_rows=40,
+                                  cloud_class=2))
+    _fetch([cur])
+    win = grid.site_window(SITE)
+    f = store.path(SITE, f"{cur}-07-21t103000")
+    strict = store.load(f, win)
+    _no_download(monkeypatch)
+    monkeypatch.setattr(CFG.swisseo.usable, "cloud_clear", [0, 2])
+    lenient = store.load(f, win)
+    assert np.isnan(strict["NDMI"]).sum() > 0
+    assert np.isnan(lenient["NDMI"]).sum() == 0
 
 
 def test_a_read_cut_off_in_transit_is_retried(world, monkeypatch):
     from rasterio.errors import RasterioIOError
-
-    from drought.swisseo import store
-    parcels, sess = world
-    monkeypatch.setattr(store.time, "sleep", lambda s: None)
     real, calls = scene.quality, []
 
     def flaky(item, win):
@@ -265,16 +104,13 @@ def test_a_read_cut_off_in_transit_is_retried(world, monkeypatch):
         return real(item, win)
 
     monkeypatch.setattr(scene, "quality", flaky)
-    files = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
-    assert any("trajectory" in f.name for f in files)
+    assert _fetch([int(CFG.project.current_year)]) == []
 
 
-def test_a_mosaic_that_keeps_failing_stops_before_any_result(world, monkeypatch):
+def test_a_mosaic_that_keeps_failing_is_reported_and_blocks_the_products(world, monkeypatch):
     from rasterio.errors import RasterioIOError
 
-    from drought.swisseo import store
-    parcels, sess = world
-    monkeypatch.setattr(store.time, "sleep", lambda s: None)
+    from drought.products import condition
     real = scene.quality
 
     def broken_2020(item, win):
@@ -283,26 +119,116 @@ def test_a_mosaic_that_keeps_failing_stops_before_any_result(world, monkeypatch)
         return real(item, win)
 
     monkeypatch.setattr(scene, "quality", broken_2020)
-    assert extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1) == []
-    stored = list((store.path("linthebene", "x").parent).glob("*.tif"))
-    assert len(stored) == 8                              # all but the 2020 mosaic
-    monkeypatch.setattr(scene, "quality", real)       # the network is back
-    files = extract.run(sites=["linthebene"], session=sess, parcels=parcels, workers=1)
-    assert any("trajectory" in f.name for f in files)
+    assert _fetch() == ["2020-07-01t103000"]
+    with pytest.raises(FileNotFoundError, match="drought fetch"):
+        condition.run(SITE)
+    monkeypatch.setattr(scene, "quality", real)             # the network is back
+    assert _fetch() == []
+    assert condition.run(SITE).exists()
 
 
-def test_the_cloud_rule_changes_without_a_new_download(world, monkeypatch):
-    """Thin cloud is stored with its class; whether it counts is decided at load."""
-    from drought.swisseo import store
-    parcels, _ = world
-    pl = extract.plan("linthebene", parcels)
-    hrefs = _mosaic(pathlib.Path(store.path("linthebene", "x").parent.parent) / "thin",
-                    cloudy_rows=40, cloud_class=2)
-    it = stac._parse({"id": "2026-07-21t103000", "properties": {"datetime": "2026-07-21T10:30:00Z"},
-                      "assets": {f"x_{k}.tif": {"href": h} for k, h in hrefs.items()}})
-    f = store.fetch(it, pl.win, "linthebene")
-    strict = store.load(f, pl.win)
-    monkeypatch.setattr(CFG.swisseo, "cloud_clear", [0, 2])
-    lenient = store.load(f, pl.win)
-    assert np.isnan(strict["NDMI"]).sum() > 0
-    assert np.isnan(lenient["NDMI"]).sum() == 0
+# --------------------------------------------------------------------------- #
+# Products
+# --------------------------------------------------------------------------- #
+def test_condition_series(world):
+    from drought.products import condition
+    _fetch()
+    df = pd.read_csv(condition.run(SITE))
+    assert set(df.year) == set(config.years())
+    cur = int(CFG.project.current_year)
+    base = df[(df.year == 2019) & (df.regime == "intensive")].NDMI.iloc[0]
+    assert base == pytest.approx(ndmi(3100, 2100), abs=1e-4)
+    now = df[(df.year == cur) & (df.regime == "intensive")].sort_values("doy")
+    assert (now.NDMI < base).all()
+    assert now.n_px.iloc[1] < now.n_px.iloc[0]               # the cloudy date has fewer cells
+    assert provenance.verify(condition.output(SITE), "condition")
+
+
+def test_cut_series_sample_and_labelled(world):
+    import json
+
+    from drought.analysis.io import load_cuts
+    from drought.products import cuts
+    cur = int(CFG.project.current_year)
+    pid = world["parcels"].parcel_id[0]
+    config.labels_path(SITE).write_text(json.dumps({f"{pid}|{cur}": [180]}))
+    _fetch()
+    files = cuts.run(SITE)
+    assert cuts.output(SITE, cur, labelled=True) in files
+    df = load_cuts(SITE, verbose=False)
+    assert set(df.parcel_id) == set(world["parcels"].parcel_id)
+    lab = load_cuts(SITE, verbose=False, labelled=True)
+    assert set(lab.parcel_id) == {pid}
+
+
+def test_sensitivity_anomaly_and_vhi(world):
+    from drought.products import anomaly, sensitivity, vhi
+    _fetch()
+    for f in sensitivity.run(SITE):
+        assert provenance.is_current(f, "sensitivity")
+    a = pd.read_csv(anomaly.run(SITE))
+    assert (a.z.dropna() < -1).all()                         # the current year is dry
+    series, parcels = vhi.run(SITE)
+    s = pd.read_csv(series)
+    assert s.vhi_mean.eq(25).all()
+    p = pd.read_csv(parcels, dtype={"parcel_id": str})
+    # the first parcel lies in the no-data rows, the second does not
+    assert p.parcel_id.tolist() == [world["parcels"].parcel_id[1]]
+
+
+def test_a_new_purity_threshold_recomputes_without_downloading(world, monkeypatch):
+    from drought.products import condition
+    _fetch()
+    before = pd.read_csv(condition.run(SITE))
+    _no_download(monkeypatch)
+    monkeypatch.setattr(CFG.mask, "purity_min", 0.4)        # takes in the 0.5 strip
+    assert not provenance.is_current(condition.output(SITE), "condition")
+    after = pd.read_csv(condition.run(SITE))
+    assert (after.n_px.to_numpy() > before.n_px.to_numpy()).all()
+
+
+def test_geojson_aoi_is_a_site_and_its_polygon_limits_the_cells(world, tmp_path):
+    import geopandas as gpd
+    from shapely.geometry import box
+
+    from drought.core import aoi
+    from drought.products.common import cells
+    f = tmp_path / "half.geojson"
+    gpd.GeoDataFrame(geometry=[box(X0, Y0 - N * 10, X0 + N * 5, Y0)], crs=2056) \
+        .to_crs(4326).to_file(f, driver="GeoJSON")
+    name = aoi.resolve(str(f))
+    assert name == "half" and CFG.sites.half.label == "half"
+    c = cells(name)
+    full = cells(SITE)
+    assert 0 < c.regimes["intensive"].sum() < full.regimes["intensive"].sum()
+
+
+# --------------------------------------------------------------------------- #
+# The runner
+# --------------------------------------------------------------------------- #
+def test_runner_runs_what_is_needed_once(world):
+    from drought.pipeline import runner
+    plan = [(s, w) for s, _site, w in runner.plan("condition", [SITE])]
+    assert plan == [("fetch", True), ("mask", False), ("condition", True)]
+    ran = runner.run("condition", [SITE], workers=1)
+    assert ran == [("fetch", SITE), ("condition", SITE)]
+    assert runner.run("condition", [SITE]) == []             # everything up to date
+    assert runner.run("condition", [SITE], force=True) == [("condition", SITE)]
+
+
+def test_runner_reruns_a_stage_whose_setting_changed(world, monkeypatch):
+    from drought.pipeline import runner
+    runner.run("condition", [SITE], workers=1)
+    monkeypatch.setattr(CFG.swisseo.usable, "cloud_clear", [0, 2])
+    assert runner.run("condition", [SITE]) == [("condition", SITE)]
+
+
+def test_window_cells_match_the_mask_grid(world):
+    """The window starts on the 20 m grid, the mask on its own 10 m grid: their cells coincide."""
+    w = grid.site_window(SITE)
+    m = grid.read_mask(w)
+    assert m["intensive"].shape == w.shape
+    col0 = int(round((X0 - w.x0) / 10))
+    row0 = int(round((w.y0 - Y0) / 10))
+    assert m["intensive"][row0 + 1, col0 + 10] == pytest.approx(0.95)
+    assert m["intensive"][row0 + 1, col0 + 2] == pytest.approx(0.5)

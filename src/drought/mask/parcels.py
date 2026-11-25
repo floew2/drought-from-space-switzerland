@@ -7,14 +7,15 @@ Persistence selects parcels and is never applied to a raster. METHOD §2.1.
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
 
-from ..config import parcels_dir
-from .settings import (
+from drought.core.config import parcels_dir
+from drought.mask.settings import (
     CODE_FIELD_CANDIDATES,
     CRS,
     GRANDFATHER_CODES,
@@ -26,13 +27,15 @@ from .settings import (
     SLIVER_FLOOR_M2,
 )
 
+log = logging.getLogger(__name__)
+
 __all__ = ["category_history", "category_of", "load_year", "master_parcels",
            "matching_check"]
 
 
 def _year_files(shp_dir=None) -> dict:
     d = Path(shp_dir) if shp_dir else parcels_dir()
-    out = {}
+    out: dict[int, Path] = {}
     for f in sorted(d.rglob(PATTERN)):
         m = re.search(r"(20\d\d)", f.stem)
         if m:
@@ -66,7 +69,7 @@ def load_year(path: Path) -> gpd.GeoDataFrame:
         raise ValueError(f"{path.name} has no CRS; expected {CRS}. Add the .prj "
                          "rather than assuming one.")
     if g.crs.to_epsg() != 2056:
-        print(f"    reprojecting {path.name} from {g.crs.to_string()} to {CRS}")
+        log.info(f"    reprojecting {path.name} from {g.crs.to_string()} to {CRS}")
         g = g.to_crs(CRS)
     field = next((c for c in CODE_FIELD_CANDIDATES if c in g.columns), None)
     if field is None:
@@ -128,7 +131,7 @@ def _repair(g: gpd.GeoDataFrame, label: str = "") -> gpd.GeoDataFrame:
     if dropped:
         g = g[g.geometry.is_valid]
     if n:
-        print(f"    repaired {n - dropped} invalid geometries"
+        log.info(f"    repaired {n - dropped} invalid geometries"
               + (f", dropped {dropped} beyond repair" if dropped else "")
               + (f" [{label}]" if label else ""))
     return g
@@ -148,7 +151,7 @@ def category_of(code: object) -> str | None:
         "intensive", "extensive", "grazed", "mown_other" or None.
     """
     try:
-        c = int(code)
+        c = int(code)                                    # type: ignore[call-overload]
     except (TypeError, ValueError):
         return None
     if c in GROUPS["intensive"]:
@@ -163,7 +166,7 @@ def category_of(code: object) -> str | None:
 
 
 def _overlap_years(cur: gpd.GeoDataFrame, past: gpd.GeoDataFrame, codes,
-                   min_overlap: float, simplify_m: float = None) -> pd.Series:
+                   min_overlap: float, simplify_m: float | None = None) -> pd.Series:
     """For each current parcel, what share of it does `past` cover with these codes?
 
     A SPATIAL JOIN, not a dissolve: union_all() on ~100,000 polygons is one
@@ -241,7 +244,7 @@ def _overlap_years(cur: gpd.GeoDataFrame, past: gpd.GeoDataFrame, codes,
                         n_bad += 1
         area.iloc[sl] = a.to_numpy()
     if n_bad:
-        print(f"    [!] {n_bad} pairs unusable even after nudging")
+        log.info(f"    [!] {n_bad} pairs unusable even after nudging")
 
     got = area.groupby(pairs["_i"]).sum()
     frac = (got / cur.geometry.area.reindex(got.index)).reindex(cur.index)
@@ -309,7 +312,7 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
     cur = cur[cur["_cat"].notna()].copy()
     n0 = len(cur)
     if verbose:
-        print(f"  {n0:,} grassland parcels in {cur_year} "
+        log.info(f"  {n0:,} grassland parcels in {cur_year} "
               f"(slivers below {floor / 1e4:g} ha dropped)")
 
     cats = sorted(cur["_cat"].unique())
@@ -322,8 +325,6 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
 
     for y in years[:-1]:
         t0 = _time.time()
-        if verbose:
-            print(f"  overlaying {y}...", end="", flush=True)
         g = load_year(files[y])
         if floor_past_years:
             g = g[g.geometry.area >= floor]
@@ -337,7 +338,7 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
             frac = _overlap_years(cur[sel], g, codes_of[c], min_overlap)
             n_same.loc[sel] += (frac >= min_overlap).astype(int)
         if verbose:
-            print(f" {_time.time() - t0:.0f} s")
+            log.info(f"  overlaid {y} in {_time.time() - t0:.0f} s")
 
     if cur_year in years:
         n_same += 1          # the current year holds its own category
@@ -365,26 +366,26 @@ def master_parcels(shp_dir: str | Path | None = None, verbose: bool = True,
                          for n, c in GROUPS.items()},
     }
     if verbose:
-        print(f"\n  MASTER PARCEL SET ({cur_year})")
-        print(f"    rule: held its category in >= {min_years} of {len(years)} "
+        log.info(f"\n  MASTER PARCEL SET ({cur_year})")
+        log.info(f"    rule: held its category in >= {min_years} of {len(years)} "
               f"years,\n          matched by >= {min_overlap:.0%} area overlap")
-        print(f"    {lost_grass:>8,}  dropped — not grassland in enough years")
-        print(f"    {lost_cat:>8,}  dropped — grassland, but a different "
+        log.info(f"    {lost_grass:>8,}  dropped — not grassland in enough years")
+        log.info(f"    {lost_cat:>8,}  dropped — grassland, but a different "
               "category")
-        print(f"    {int(grandfathered.sum()):>8,}  exempt "
+        log.info(f"    {int(grandfathered.sum()):>8,}  exempt "
               f"(codes {GRANDFATHER_CODES}, present only in the latest year)")
-        print(f"    {len(out):>8,}  remain "
+        log.info(f"    {len(out):>8,}  remain "
               f"({100 * len(out) / max(n0, 1):.1f}%), "
               f"{out.geometry.area.sum() / 1e4:,.0f} ha")
-        print("\n    per category:")
+        log.info("\n    per category:")
         for name, codes in GROUPS.items():
             sub = out[out["_code"].isin(codes)]
-            print(f"      {name:<12}{len(sub):>8,} parcels"
+            log.info(f"      {name:<12}{len(sub):>8,} parcels"
                   f"{sub.geometry.area.sum() / 1e4:>12,.0f} ha")
-        print("\n    years the category was held, distribution:")
+        log.info("\n    years the category was held, distribution:")
         vc = n_same[~grandfathered].value_counts().sort_index()
         for k, v in vc.items():
-            print(f"      {k:>2} of {len(years)}{v:>10,} parcels"
+            log.info(f"      {k:>2} of {len(years)}{v:>10,} parcels"
                   f"{100 * v / max(len(cur), 1):>8.1f}%")
     return out
 
@@ -435,8 +436,6 @@ def category_history(shp_dir: str | Path | None = None, min_overlap: float | Non
 
     for y in years[:-1]:
         t0 = _time.time()
-        if verbose:
-            print(f"  overlaying {y}...", end="", flush=True)
         g = load_year(files[y])
         if floor_past_years:
             g = g[g.geometry.area >= floor]
@@ -450,7 +449,7 @@ def category_history(shp_dir: str | Path | None = None, min_overlap: float | Non
                 _overlap_years(cur[sel], g, codes_of[c], min_overlap)
                 >= min_overlap).astype(int)
         if verbose:
-            print(f" {_time.time() - t0:.0f} s")
+            log.info(f"  overlaid {y} in {_time.time() - t0:.0f} s")
 
     hist["years_grassland"] = n_grass
     hist["years_same_cat"] = n_same
@@ -459,19 +458,19 @@ def category_history(shp_dir: str | Path | None = None, min_overlap: float | Non
     if verbose:
         n = len(hist)
         ny = len(years)
-        print(f"\n  {n:,} grassland parcels in {cur_year}, over {ny} years, "
+        log.info(f"\n  {n:,} grassland parcels in {cur_year}, over {ny} years, "
               f"matched by >= {min_overlap:.0%} area overlap\n")
-        print(f"  {'years':>7}{'was grassland':>16}{'held its category':>20}")
+        log.info(f"  {'years':>7}{'was grassland':>16}{'held its category':>20}")
         for k in range(ny, 0, -1):
             a = int((hist.years_grassland == k).sum())
             b = int((hist.years_same_cat == k).sum())
-            print(f"  {k:>5} y{a:>12,} {100*a/n:>4.0f}%{b:>13,} {100*b/n:>4.0f}%")
-        print("\n  WHAT EACH RULE WOULD KEEP")
+            log.info(f"  {k:>5} y{a:>12,} {100*a/n:>4.0f}%{b:>13,} {100*b/n:>4.0f}%")
+        log.info("\n  WHAT EACH RULE WOULD KEEP")
         for k in range(ny, max(ny - 5, 0), -1):
             r = ((hist.years_same_cat >= k) | hist.grandfathered).mean()
-            print(f"    category held in >= {k} of {ny} years{100 * r:>14.1f}%")
+            log.info(f"    category held in >= {k} of {ny} years{100 * r:>14.1f}%")
         chg = int(((hist.years_grassland == ny) & (hist.years_same_cat < ny)).sum())
-        print(f"\n  {chg:,} parcels ({100 * chg / n:.1f}%) were grassland in "
+        log.info(f"\n  {chg:,} parcels ({100 * chg / n:.1f}%) were grassland in "
               "every year but\n  changed category at some point — that is real "
               "management change.")
     return hist
@@ -492,14 +491,14 @@ def matching_check(shp_dir: str | Path | None = None,
     Returns:
         dict threshold -> % of parcels that held their category in all years.
     """
-    print(f"{'overlap':>9}{'held category in ALL years':>29}")
+    log.info(f"{'overlap':>9}{'held category in ALL years':>29}")
     out = {}
     for o in overlaps:
         h = category_history(shp_dir, min_overlap=o, verbose=False)
         ny = h.years_same_cat.max()
         r = 100 * ((h.years_same_cat >= ny) | h.grandfathered).mean()
         out[o] = r
-        print(f"{o:>8.0%}{r:>28.1f}%")
-    print("\n  a gentle slope means the matching is robust; a steep one means "
+        log.info(f"{o:>8.0%}{r:>28.1f}%")
+    log.info("\n  a gentle slope means the matching is robust; a steep one means "
           "the\n  threshold is doing more work than it should.")
     return out

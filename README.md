@@ -5,7 +5,7 @@
 ![licence](https://img.shields.io/badge/licence-MIT-green)
 
 **Built with** Python · GeoPandas · Shapely · rasterio · NumPy · pandas · SciPy ·
-Matplotlib · Google Earth Engine Python API · pytest · GitHub Actions
+Matplotlib · Pydantic · pytest · mypy · GitHub Actions
 
 **Background.** In summer 2026, Switzerland was hit hard by drought. At St. Gallen, rainfall to
 mid-October reached only 61 % of the long-term median, the driest such period
@@ -107,7 +107,7 @@ More figures: [docs/gallery.md](docs/gallery.md). A step-by-step walkthrough:
 
 ## Quick start (synthetic data)
 
-No Google Earth Engine account and no download of any data is needed to run the tools:
+No account and no download of any data is needed to run the tools:
 
 ```bash
 git clone https://github.com/floew2/drought-from-space-switzerland.git
@@ -125,15 +125,16 @@ stamped SYNTHETIC; they show what each step does, not what actually happened in 
 The satellite data comes from swisstopo's
 [swissEO S2-SR](https://www.swisstopo.admin.ch/en/satelliteimage-swisseo-s2-sr)
 (Sentinel-2 surface reflectance for Switzerland, v200), read locally: no
-account is needed. Google Earth Engine remains a second option
-(`backend: gee`), and the results above were produced with it. The grassland
-mask needs the canton's parcel data over several years.
+account is needed; swissEO covers Switzerland only. The results above come from
+a first run in Google Earth Engine, which this version no longer uses; they
+will be replaced by the swissEO run. The grassland mask needs the canton's
+parcel data over several years.
 
 | step                              | needs                                        | open? |
 |-----------------------------------|----------------------------------------------|---|
 | rainfall and water balance        | internet                                     | **yes**, MeteoSwiss Open Data |
 | grassland mask                    | parcel polygons per year                     | **partly**: the latest year is free from [geodienste.ch](https://www.geodienste.ch/); earlier years are not open. With one year, every field is kept. |
-| grassland condition               | the grassland mask + internet                | **yes**, swissEO via the [swisstopo STAC catalogue](https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swisseo_s2-sr_v200); or an Earth Engine project, free for noncommercial use |
+| grassland condition               | the grassland mask + internet                | **yes**, swissEO via the [swisstopo STAC catalogue](https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swisseo_s2-sr_v200) |
 | mowing scores (cutting frequency) | hand labels                                  | **no**; make your own with the labelling widget |
 
 The mask in this study was built from the yearly parcel layers 2017–2025,
@@ -143,9 +144,10 @@ parcel data is not redistributed; nothing in `data/` is committed.
 ```mermaid
 flowchart LR
   P["parcel polygons"] --> M["mask build<br/>PSF purity, 10 m"]
-  S2["swissEO S2-SR v200<br/>OmniCloudMask, terrain, snow"] --> E["local extraction"]
+  S2["swissEO S2-SR v200<br/>OmniCloudMask, terrain, snow"] --> F["fetch<br/>data/scenes"]
+  F --> E["products"]
   M --> E
-  E --> A["trajectories · sensitivity · cuts"]
+  E --> A["condition · sensitivity · anomaly · cuts"]
   V["swissEO VHI"] --> X["cross-check"]
   M --> X
   L["hand labels"] --> A
@@ -167,33 +169,29 @@ Parcel shapefiles go to `data/nutzungen/<year>/`, hand labels to `data/labels/`.
 **Steps**
 
 ```bash
-drought mask build                    # purity mask -> data/masks/grassland_mask_sg.tif
-drought parcels ids                   # parcel file with a stable parcel_id -> data/parcels/
-drought swisseo items                 # mosaics per site and year in the catalogue
-drought swisseo run                   # trajectory, sensitivity, cut series -> data/swisseo/
-drought swisseo vhi                   # swisstopo's VHI on the same cells, current year
-drought trajectory plot
-drought sensitivity plot
-drought precip --download
-drought cuts score --site linthebene --labelled
-drought cuts labels --site linthebene
+drought mask build                    # purity mask + parcel file with a stable parcel_id
+drought fetch                         # download swissEO once -> data/scenes/<site>/
+drought run                           # every stage that is not done, then the report
 drought results show                  # every headline number, refused if stale
 ```
 
-`swisseo run` downloads each mosaic once and keeps it in `data/swisseo/scenes/`:
-the whole site window, cloud-masked, as NDVI, NDMI and NDRE (int16, roughly
-8 GB in all). Everything is computed from those files, so an
-interrupted run resumes, and a new purity threshold or mask needs no download. Every file
-carries a record of the settings, mask and backend that produced it, and
-loading refuses a mismatch.
+`drought run STAGE` runs one stage and whatever it needs that is not done
+(`drought run --dry-run` lists them). The stages are `fetch`, `mask`,
+`condition`, `sensitivity`, `anomaly`, `cuts`, `vhi`, `evaluate`, `precip` and
+`report`; each is also a command of its own, e.g. `drought anomaly --aoi linthebene`.
+`--aoi` takes a site from `config.yaml` or a GeoJSON polygon inside Switzerland:
 
-**Earth Engine instead:** `uv sync --extra ee`, `earthengine authenticate`, put
-`backend: gee` and `gee: {project: <your-ee-project>}` in `config.local.yaml`
-(git-ignored), upload in the [Code Editor](https://code.earthengine.google.com/)
-the mask GeoTIFF (name `grassland_mask_sg`, pyramiding **SAMPLE**) and
-`data/parcels/parcels_<year>.shp` (name `parcels_<year>`), then `drought ee stamp-mask`, `drought ee trajectory`,
-`drought ee sensitivity`, `drought ee cuts --labelled-only`. Exports go to
-Google Drive and are downloaded and registered from there.
+```bash
+drought fetch --aoi my_area.geojson --years 2019-2026
+drought anomaly --aoi my_area.geojson
+```
+
+`fetch` keeps each mosaic once per site, over the whole site window: NDVI,
+NDMI and NDRE as int16, plus swissEO's cloud, terrain and snow classes. The
+cloud rule is applied when the files are read, so a new cloud rule, mask or
+purity threshold needs no new download, and an interrupted fetch resumes.
+Every output carries a record of the settings and mask that produced it; a
+stage whose record no longer matches is run again, and loading refuses a mismatch.
 
 To label mowing events for evaluation, in Jupyter:
 
@@ -212,22 +210,30 @@ All settings live in `config.yaml`; `drought --help` lists every command.
 ```
 drought-from-space-switzerland/
 ├── config.yaml                every setting
-├── src/drought/               the analysis: mask, trajectory, precip, detect, evaluate, provenance
-│   ├── engine/                Earth Engine exports, run from Python
+├── src/drought/
+│   ├── core/                  configuration, AOIs, grid, provenance, results
+│   ├── sources/               swissEO (STAC, download, store), parcels, MeteoSwiss
+│   ├── mask/                  the grassland purity mask
+│   ├── products/              tables from the stored mosaics: condition, sensitivity,
+│   │                          anomaly, cuts, VHI
+│   ├── analysis/              computations on those tables: cleaning, cut detection,
+│   │                          evaluation, precipitation
+│   ├── viz/                   figures
+│   ├── pipeline/              stages and the runner behind `drought run`
 │   └── synthetic/             synthetic stand-ins for every input
 ├── notebooks/
 │   └── walkthrough.ipynb      the pipeline step by step
 ├── docs/
 │   ├── METHOD.md              how and why
 │   └── gallery.md             figures from the real data
-└── tests/                     pytest; CI runs lint, tests, the demo and the notebook
+└── tests/                     pytest; CI runs lint, type check, tests, the demo and the notebook
 ```
 
 ## Data and licence
 
 Code: MIT ([LICENSE](LICENSE)). Contains modified Copernicus Sentinel data
-(2019–2026), processed in Google Earth Engine; Cloud Score+ (Pasquarella et al.
-2023). swissEO S2-SR and VHI: © swisstopo, Contains modified Copernicus
+(2019–2026); the results quoted above were processed in Google Earth Engine with
+Cloud Score+ (Pasquarella et al. 2023). swissEO S2-SR and VHI: © swisstopo, Contains modified Copernicus
 Sentinel data 2019–2026 ([terms](https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices)). Station data: MeteoSwiss Open Data (CC BY 4.0), *Quelle: MeteoSchweiz*.
 Elevation: CGIAR-CSI SRTM 90 m. Field geometries: Nutzungsflächen 2017–2025,
 © Kanton St.Gallen, provided by the Amt für Raumentwicklung und Geoinformation

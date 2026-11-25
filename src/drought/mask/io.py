@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .settings import CRS
+from drought.mask.settings import CRS
 
 __all__ = ["site_bounds_lv95", "write_raster"]
 
@@ -36,20 +36,7 @@ def write_raster(bands: list[tuple[np.ndarray, str]], grid: tuple[float, float, 
 
 
 def site_bounds_lv95(site: str) -> tuple[float, float, float, float]:
-    """A site's bounding box from config, transformed WGS84 -> LV95.
+    """A site's bounds in LV95 (EPSG:2056): its AOI polygon's bounding box."""
+    from drought.core import aoi
 
-    Args:
-        site: Site key in config.yaml.
-
-    Returns:
-        (x0, y0, x1, y1) in EPSG:2056.
-    """
-    from pyproj import Transformer
-
-    from ..config import site_cfg
-
-    b = site_cfg(site).bbox_wgs84
-    t = Transformer.from_crs("EPSG:4326", CRS, always_xy=True)
-    x0, y0 = t.transform(b[0], b[1])
-    x1, y1 = t.transform(b[2], b[3])
-    return min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)
+    return aoi.get(site).bounds
