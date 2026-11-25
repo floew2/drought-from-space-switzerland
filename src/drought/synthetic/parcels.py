@@ -137,6 +137,7 @@ def fit_area(median_ha: float, lt_05: float, mean_ha: float | None = None
         return [_tln_cdf(median_ha, mu, s) - 0.5, _tln_cdf(0.5, mu, s) - lt_05]
 
     def res3(p):
+        assert mean_ha is not None                 # only solved when a mean is given
         mu, s, b = p[0], np.exp(p[1]), median_ha + np.exp(p[2])
         return [_tln_cdf(median_ha, mu, s, b) - 0.5, _tln_cdf(0.5, mu, s, b) - lt_05,
                 np.log(_tln_mean(mu, s, b)) - np.log(mean_ha)]
