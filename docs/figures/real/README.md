@@ -19,9 +19,9 @@ Expected files:
 
 | file | from | run date |
 |---|---|---|
-| `vi_trajectory_NDMI_intensive_linthebene.png` | `drought trajectory plot --site linthebene` | 14 Oct 2026 |
+| `vi_trajectory_NDMI_intensive_linthebene.png` | `drought report --aoi linthebene --only condition` | 14 Oct 2026 |
 | `vi_trajectory_NDMI_extensive_linthebene.png` | same | 14 Oct 2026 |
-| `vi_trajectory_NDMI_intensive_rheintal.png` | `drought trajectory plot --site rheintal` | 14 Oct 2026 |
+| `vi_trajectory_NDMI_intensive_rheintal.png` | `drought report --aoi rheintal --only condition` | 14 Oct 2026 |
 | `vi_trajectory_NDMI_extensive_rheintal.png` | same | 14 Oct 2026 |
 | `precip_stg_2026.png` | `drought precip --download` | 14 Oct 2026 (data to 12 Oct) |
 | `parcel_size.png` | `drought mask figures` | 14 Oct 2026 |

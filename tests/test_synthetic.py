@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drought import config
+from drought.core import config
 from drought.synthetic import parcels as P
 from drought.synthetic import targets as T
 

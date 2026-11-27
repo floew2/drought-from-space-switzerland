@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
-from . import targets as T
+from drought.synthetic import targets as T
 
 ABBR = "syn"
 LAT = 47.425                    # St. Gallen
@@ -62,7 +62,7 @@ def _temperature(rng, days: pd.DatetimeIndex, dtr_scale: float, heat: np.ndarray
     return tmean, tmean + dtr / 2, tmean - dtr / 2
 
 
-def _cum_to(series: pd.Series, year: int, end_doy: int) -> float:
+def _cum_to(series: pd.Series, year: int, end_doy: float) -> float:
     s = series[(series.index.year == year) & (series.index.dayofyear <= end_doy)]
     return float(s.sum())
 
@@ -73,7 +73,7 @@ def generate(rng: np.random.Generator) -> pd.DataFrame:
     Returns:
         DataFrame indexed by date with rre150d0, tre200d0, tre200dx, tre200dn.
     """
-    from ..precip import hargreaves_pet
+    from drought.analysis.precip import hargreaves_pet
 
     tgt = T.PRECIP
     end = tgt["end_doy"]

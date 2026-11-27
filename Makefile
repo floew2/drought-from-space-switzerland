@@ -1,10 +1,11 @@
 # Fresh clone:   make install && make demo
 PY ?= python
 
-.PHONY: install demo demo-fresh gallery notebook site test lint check clean
+.PHONY: install demo demo-fresh gallery notebook site test lint typecheck check clean
 
-install:            ## editable install with test and lint tools
+install:            ## editable install with test, lint and type-check tools
 	$(PY) -m pip install -e ".[dev]"
+	pre-commit install || true
 
 demo:               ## whole pipeline on synthetic data -> output/synthetic/
 	PYTHONPATH=src $(PY) -m drought.cli demo
@@ -30,7 +31,10 @@ test:
 lint:
 	$(PY) -m ruff check src tests
 
-check: lint test demo
+typecheck:
+	$(PY) -m mypy src
+
+check: lint typecheck test demo
 
 clean:              ## remove synthetic inputs and outputs (never touches real data)
 	rm -rf data/synthetic output/synthetic

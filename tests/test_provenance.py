@@ -1,6 +1,6 @@
 """Stale files are refused, and the refusal names what is stale.
 
-The worked example from the project's history: a trajectory export with the
+The worked example from the project's history: a condition series with the
 right schema but the wrong vintage, carrying management categories (mown /
 grazed) that the pipeline no longer uses, and a mask from an older build.
 """
@@ -13,11 +13,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drought import config, provenance
-from drought.provenance import ProvenanceError, record, register, verify, write_sidecar
+from drought.core import config, provenance
+from drought.core.provenance import ProvenanceError, record, register, verify, write_sidecar
 
 
-def _trajectory_csv(path, regimes=("intensive", "extensive")):
+def _condition_csv(path, regimes=("intensive", "extensive")):
     years = [*config.CFG.project.baseline_years, config.CFG.project.current_year]
     rows = [{"site": "linthebene", "regime": r, "year": y, "date": f"{y}-06-01", "doy": 152,
              "NDVI": 0.8, "kNDVI": 0.58, "NDMI": 0.35, "NDRE": 0.4, "n_px": 6000}
@@ -37,56 +37,56 @@ def fake_mask(monkeypatch):
 
 
 def test_current_file_passes(tmp_path, fake_mask):
-    f = _trajectory_csv(tmp_path / "traj.csv")
-    register(f, "trajectory")
-    assert verify(f, "trajectory")["content"]["regimes"] == ["extensive", "intensive"]
+    f = _condition_csv(tmp_path / "traj.csv")
+    register(f, "condition")
+    assert verify(f, "condition")["content"]["regimes"] == ["extensive", "intensive"]
 
 
 def test_missing_record_is_refused(tmp_path, fake_mask):
-    f = _trajectory_csv(tmp_path / "traj.csv")
+    f = _condition_csv(tmp_path / "traj.csv")
     with pytest.raises(ProvenanceError, match="provenance record"):
-        verify(f, "trajectory")
+        verify(f, "condition")
 
 
 def test_old_categories_are_refused_at_registration(tmp_path, fake_mask):
     """The CSV that was nearly published: mown / grazed, not intensive / extensive."""
-    f = _trajectory_csv(tmp_path / "grassland_trajectory_multi.csv", ("mown", "grazed"))
+    f = _condition_csv(tmp_path / "grassland_trajectory_multi.csv", ("mown", "grazed"))
     with pytest.raises(ProvenanceError) as exc:
-        register(f, "trajectory")
+        register(f, "condition")
     assert exc.value.field == "content.regimes"
     assert exc.value.recorded == ["grazed", "mown"]
 
 
 def test_record_from_other_settings_is_refused_naming_the_setting(tmp_path, fake_mask):
-    f = _trajectory_csv(tmp_path / "traj.csv")
-    stale = record("trajectory", f, provenance.summarise("trajectory", f))
+    f = _condition_csv(tmp_path / "traj.csv")
+    stale = record("condition", f, provenance.summarise("condition", f))
     stale["settings"]["mask.purity_min"] = 0.8               # produced at another threshold
     write_sidecar(f, stale)
     with pytest.raises(ProvenanceError) as exc:
-        verify(f, "trajectory")
+        verify(f, "condition")
     assert exc.value.field == "mask.purity_min"
     assert (exc.value.recorded, exc.value.current) == (0.8, 0.9)
 
 
 def test_record_from_another_mask_is_refused(tmp_path, fake_mask):
-    f = _trajectory_csv(tmp_path / "traj.csv")
-    register(f, "trajectory")
+    f = _condition_csv(tmp_path / "traj.csv")
+    register(f, "condition")
     side = provenance.sidecar_path(f)
     rec = json.loads(side.read_text())
     rec["mask"]["sha256"] = "b" * 16                         # an older mask build
     side.write_text(json.dumps(rec))
     with pytest.raises(ProvenanceError) as exc:
-        verify(f, "trajectory")
+        verify(f, "condition")
     assert exc.value.field == "mask.sha256"
 
 
 def test_file_changed_after_recording_is_refused(tmp_path, fake_mask):
-    f = _trajectory_csv(tmp_path / "traj.csv")
-    register(f, "trajectory")
+    f = _condition_csv(tmp_path / "traj.csv")
+    register(f, "condition")
     with open(f, "a") as fh:
         fh.write("linthebene,intensive,2026,2026-09-30,273,0.8,0.58,0.4,0.4,6000\n")
     with pytest.raises(ProvenanceError) as exc:
-        verify(f, "trajectory")
+        verify(f, "condition")
     assert exc.value.field == "file_sha256"
 
 
@@ -105,23 +105,29 @@ def test_a_20m_uint8_mask_is_not_a_current_mask(tmp_path, monkeypatch):
 
 
 def test_require_false_warns_instead(tmp_path, fake_mask, monkeypatch):
-    f = _trajectory_csv(tmp_path / "traj.csv")
+    f = _condition_csv(tmp_path / "traj.csv")
     monkeypatch.setattr(config.CFG.provenance, "require", False)
     with pytest.warns(UserWarning, match="provenance not verified"):
-        verify(f, "trajectory")
+        verify(f, "condition")
 
 
-def test_export_named_with_another_config_hash_is_refused(tmp_path, fake_mask):
-    f = _trajectory_csv(tmp_path / "grassland_trajectory_multi_p90_cfg000000000000.csv")
-    with pytest.raises(ProvenanceError, match="Re-run the export"):
-        register(f, "trajectory")
+def test_a_setting_that_shapes_the_file_makes_it_stale(tmp_path, fake_mask, monkeypatch):
+    """The cloud rule decides which pixels entered: changing it makes the file stale."""
+    f = _condition_csv(tmp_path / "condition.csv")
+    register(f, "condition")
+    assert provenance.is_current(f, "condition")
+    monkeypatch.setattr(config.CFG.swisseo.usable, "cloud_clear", [0, 2])
+    assert not provenance.is_current(f, "condition")
+    with pytest.raises(ProvenanceError) as exc:
+        verify(f, "condition")
+    assert exc.value.field == "swisseo.usable"
 
 
 # --------------------------------------------------------------------------- #
 # results.json never mixes vintages
 # --------------------------------------------------------------------------- #
 def test_results_drop_and_refuse_stale_sections(tmp_path, monkeypatch, fake_mask):
-    from drought import results
+    from drought.core import results
 
     monkeypatch.setattr(results, "path", lambda: tmp_path / "results.json")
     results.update("condition", {"linthebene/intensive": {"integral_pct": -33.0}})

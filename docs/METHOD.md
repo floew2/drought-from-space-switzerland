@@ -25,6 +25,14 @@ the Alpstein.
 | Sentinel-2 L2A, 10 m, 2019–2026 | spectral indices, Cloud Score+ cloud mask | condition and cuts |
 | Nutzungsflächen 2017–2025, Kanton St.Gallen (used with permission) | yearly field outlines with land-use codes | which pixels are grassland, of which kind |
 | MeteoSwiss station St. Gallen, 1991–2026 | daily precipitation and temperature | independent check |
+| swissEO VHI (swisstopo, MeteoSwiss), 2026 | Vegetation Health Index, 10 m, daily | independent check |
+
+The results in this document were extracted in Google Earth Engine. The
+pipeline now reads swisstopo's swissEO S2-SR v200 instead, the same
+Sentinel-2 data co-registered and reprojected to LV95, with its own cloud mask
+(OmniCloudMask), terrain-shadow and snow layers, downloaded once and computed
+locally (`drought fetch`, `drought run`). The numbers here will be updated
+from that run.
 
 2026 is compared with 2019–2025. That baseline includes the 2022 drought, so
 the 2026 anomaly is, if anything, understated. Everything is in CH1903+ / LV95
@@ -127,7 +135,7 @@ and the demo enforces it.
 
 ### 2.5 Is the threshold a lever on the answer?
 
-The threshold is applied in Earth Engine, so it can be swept. The 2026 NDMI
+The threshold is applied when the stored mosaics are read, so it can be swept. The 2026 NDMI
 anomaly against 2019–2025, by threshold:
 
 | | at 0.00 | at 0.90 (used) | at 0.95 | spread 0.50–0.95 |
@@ -150,7 +158,7 @@ two meadow types flips near 0.5, so they are not compared there.)
 
 ### 3.1 Site-mean trajectories
 
-For each site, management type and acquisition date, Earth Engine returns the
+For each site, management type and acquisition date, the pipeline takes the
 mean index over pixels with purity ≥ 0.90. Before any curve is drawn:
 
 - **Clouds.** A pixel is used only if its Cloud Score+ value is at least 0.60.

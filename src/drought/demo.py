@@ -18,10 +18,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import time
+from typing import Any
 
 import numpy as np
 import pandas as pd
+
+log = logging.getLogger(__name__)
 
 
 def _max_own_purity(geom) -> float:
@@ -45,7 +49,7 @@ def _funnel(master, truth: pd.DataFrame) -> dict:
     a redraw. Both must be unobservable on their own (no cell reaching
     mask.purity_min); a lost parcel that could hold a clean cell is a failure.
     """
-    from drought import config
+    from drought.core import config
     from drought.mask import PURITY_MIN, SLIVER_FLOOR_M2
     from drought.mask.parcels import _year_files, load_year
 
@@ -89,14 +93,15 @@ def _geometry(data: dict) -> dict:
 
 def _cuts(site: str) -> dict:
     import drought as dr
-    from drought import changepoint, evaluate, figures, labels
+    from drought.analysis import changepoint, evaluate, labels
+    from drought.viz import cuts as cut_fig
 
     df = dr.load_site(site, verbose=False)
     lab = labels.check_labels(labels.load_labels(site), df)
     h = evaluate.score(lab, df, verbose=False)
     by_year = evaluate.score_by_year(lab, df)
     cp = changepoint.score_detector(lab, df, changepoint.detect_changepoints)
-    figures.figure_last_cut(df, site, regime="intensive")
+    cut_fig.figure_last_cut(df, site, regime="intensive")
     return {"labelled_parcel_years": len(lab), "precision": h["precision"],
             "recall": h["recall"], "f1": h["f1"],
             "recall_per_year": (float(by_year.recall.min()), float(by_year.recall.max())),
@@ -108,7 +113,8 @@ def run(fresh: bool = False) -> dict:
     import matplotlib
 
     matplotlib.use("Agg")
-    from drought import config, synthetic
+    from drought import synthetic
+    from drought.core import config
     from drought.synthetic import targets as T
 
     t0 = time.time()
@@ -118,24 +124,29 @@ def run(fresh: bool = False) -> dict:
         gen = synthetic.generate()
     else:
         gen = {"note": "existing synthetic data reused; --fresh to regenerate"}
-        print("synthetic data present — reusing (python -m drought.demo --fresh to regenerate)")
+        log.info("synthetic data present — reusing (python -m drought.demo --fresh to regenerate)")
 
-    from drought import mask, mask_figures, precip, results, trajectory
+    from drought import mask
+    from drought.core import results
+    from drought.sources import meteoswiss
+    from drought.viz import condition as condition_fig
+    from drought.viz import mask as mask_fig
+    from drought.viz import precip as precip_fig
 
-    summary = {"generator": gen}
+    summary: dict[str, Any] = {"generator": gen}
 
-    print("\n=== 1  grassland mask ==========================================")
+    log.info("\n=== 1  grassland mask ==========================================")
     master = mask.build_mask()
     truth = pd.read_csv(config.parcels_dir() / "parcels_truth.csv")
     summary["funnel"] = _funnel(master, truth)
-    area = mask_figures.area_check(master=master)
+    area = mask_fig.area_check(master=master)
     summary["area_ratio"] = {n: (round(v["ratio"][0.0], 2), round(v["ratio"][0.9], 2))
                              for n, v in area.items()}
     summary["psf_model_check"] = {
         f"{c}@{t:g}": {k: round(float(v), 4) for k, v in row.items()}
         for (c, t), row in mask.psf_model_check(master).iterrows()}
-    summary["psf"] = mask_figures.figure_psf()
-    summary["geometry"] = _geometry(mask_figures.figure_parcel_size(master=master))
+    summary["psf"] = mask_fig.figure_psf()
+    summary["geometry"] = _geometry(mask_fig.figure_parcel_size(master=master) or {})
     results.update("mask", {"funnel": master.attrs["funnel"], "response": mask.psf_params()},
                    inputs=[config.mask_path()])
     results.update("mask_area", {
@@ -146,12 +157,15 @@ def run(fresh: bool = False) -> dict:
         "psf_model_check": summary["psf_model_check"]}, inputs=[config.mask_path()])
     areas = {n: float(master[master["_code"].isin(c)].geometry.area.sum() / 1e4)
              for n, c in mask.GROUPS.items()}
-    mask_figures.figure_purity_explainer(site="linthebene", group="intensive", areas=areas)
-    mask_figures.figure_purity_map("linthebene", group="intensive")
+    mask_fig.figure_purity_explainer(site="linthebene", group="intensive", areas=areas)
+    mask_fig.figure_purity_map("linthebene", group="intensive")
 
-    print("\n=== 2  grassland condition =====================================")
-    tpath = config.ROOT / config.CFG.paths.gee / "grassland_trajectory_multi.csv"
-    traj = trajectory.plot(path=tpath, index="NDMI")
+    log.info("\n=== 2  grassland condition =====================================")
+    sites = [s for s in config.CFG.condition.sites
+             if (config.series_dir(s) / "condition.csv").exists()]
+    traj = condition_fig.plot(sites, index="NDMI")
+    if traj is None:
+        raise RuntimeError("no condition series to plot; run `drought synthetic generate`")
     summary["trajectory"] = {
         f"{r.site}/{r.regime}": {"integral_pct": round(float(r.integral_pct), 1),
                                  "rank": int(r.rank), "upto": int(r.upto),
@@ -161,34 +175,34 @@ def run(fresh: bool = False) -> dict:
         f"{r.site}/{r.regime}": {"index": "NDMI", "integral_pct": round(float(r.integral_pct), 1),
                                  "rank": int(r.rank), "n_baseline_years": int(r.n_baseline_years),
                                  "upto_doy": int(r.upto), "shared_days": int(r.n_days)}
-        for r in traj.itertuples()}, inputs=[tpath])
+        for r in traj.itertuples()},
+        inputs=[config.series_dir(s) / "condition.csv" for s in sites])
 
-    print("\n=== 3  precipitation ===========================================")
-    daily, abbr, lat = precip.load_local(config.station_dir())
-    summary["precip"] = precip.main(daily=daily, abbr=abbr, lat=lat,
-                                    station_label="Synthetic station")
+    log.info("\n=== 3  precipitation ===========================================")
+    daily, abbr, lat = meteoswiss.load_local(config.station_dir())
+    summary["precip"] = precip_fig.figure(daily, abbr, lat, station_label="Synthetic station")
     results.update("precipitation", {k: v for k, v in summary["precip"].items() if k != "file"},
                    inputs=sorted(config.station_dir().glob("ogd-smn_*_d_*.csv")))
 
-    print("\n=== 4  cut detection ===========================================")
+    log.info("\n=== 4  cut detection ===========================================")
     summary["detector"] = {s: _cuts(s) for s in ("linthebene", "rheintal")}
     for site, d in summary["detector"].items():
         results.update(f"detector.{site}", d,
-                       inputs=sorted(config.gee_dir(site).glob("cuts_*.csv")))
+                       inputs=sorted(config.series_dir(site).glob("cuts_*.csv")))
     results.load()                 # every section must be from the same settings and mask
-    print(f"  results -> {results.path().relative_to(config.ROOT)}")
+    log.info(f"  results -> {results.path().relative_to(config.ROOT)}")
 
     summary["runtime_s"] = round(time.time() - t0, 1)
     summary["failed_checks"] = check(summary, T)
     out = config.tables_dir() / "demo_summary.json"
     out.write_text(json.dumps(summary, indent=1, default=str))
     _report(summary, T)
-    print(f"\n  summary -> {out.relative_to(config.ROOT)}")
-    print(f"  figures -> {config.figures_dir().relative_to(config.ROOT)}/")
-    print(f"  {summary['runtime_s']:.0f} s")
+    log.info(f"\n  summary -> {out.relative_to(config.ROOT)}")
+    log.info(f"  figures -> {config.figures_dir().relative_to(config.ROOT)}/")
+    log.info(f"  {summary['runtime_s']:.0f} s")
     if summary["failed_checks"]:
         raise SystemExit("demo checks FAILED:\n  " + "\n  ".join(summary["failed_checks"]))
-    print("  all demo checks passed")
+    log.info("  all demo checks passed")
     return summary
 
 
@@ -274,18 +288,18 @@ def _report(s: dict, T) -> None:
         add("detector", f"{site} changepoint F1", f"{d['changepoint_f1']:.2f}",
             f"{T.DETECTOR['changepoint_f1']:.2f}*", "emergent")
 
-    print("\n=== synthetic against real ======================================")
-    print(f"  {'':<10}{'quantity':<38}{'synthetic':<26}{'real':<22}")
+    log.info("\n=== synthetic against real ======================================")
+    log.info(f"  {'':<10}{'quantity':<38}{'synthetic':<26}{'real':<22}")
     for grp, what, syn, real, kind in rows:
-        print(f"  {grp:<10}{what:<38}{syn:<26}{real:<22}{kind}")
-    print("\n  calibrated  the generator was solved to reproduce the real value")
-    print("  emergent    not targeted; produced by the method acting on synthetic input")
-    print("  *           real detector scores: 10 m mask, 136 Linthebene parcel-years")
-    print(f"\n  master set: {f['remain']:,} of {f['grassland_2025']:,} kept; planted "
+        log.info(f"  {grp:<10}{what:<38}{syn:<26}{real:<22}{kind}")
+    log.info("\n  calibrated  the generator was solved to reproduce the real value")
+    log.info("  emergent    not targeted; produced by the method acting on synthetic input")
+    log.info("  *           real detector scores: 10 m mask, 136 Linthebene parcel-years")
+    log.info(f"\n  master set: {f['remain']:,} of {f['grassland_2025']:,} kept; planted "
           + ", ".join(f"{k} {v}" for k, v in f["planted"].items())
           + ".")
     if f["stable_dropped"]:
-        print(f"  {f['stable_dropped']} parcels planted as stable were not kept "
+        log.info(f"  {f['stable_dropped']} parcels planted as stable were not kept "
               f"({f['stable_dropped_ha']} ha): {f['stable_dropped_below_floor']} came out "
               f"below the sliver floor in 2025, {f['stable_dropped_unmatched']} are strips "
               f"overlap matching cannot follow through a redraw (median shape index "

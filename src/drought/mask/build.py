@@ -7,17 +7,20 @@ that. The ratio at purity > 0 must exceed 1 for every category.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from ..config import mask_path
-from .io import site_bounds_lv95, write_raster
-from .parcels import master_parcels
-from .purity import psf_caption, psf_params, purity_psf
-from .settings import CLIP_BBOX_LV95, CRS, GROUPS, PURITY_MIN, RES, SUBPIXEL
+from drought.core.config import mask_path
+from drought.mask.io import site_bounds_lv95, write_raster
+from drought.mask.parcels import master_parcels
+from drought.mask.purity import psf_caption, psf_params, purity_psf
+from drought.mask.settings import CLIP_BBOX_LV95, CRS, GROUPS, PURITY_MIN, RES, SUBPIXEL
+
+log = logging.getLogger(__name__)
 
 __all__ = ["area_table", "build_mask", "main", "output_grid", "psf_model_check",
            "window_polygon_ha",
@@ -39,7 +42,7 @@ def output_grid(master: gpd.GeoDataFrame, verbose: bool = True) -> tuple[tuple, 
         x0 = max(b[0], CLIP_BBOX_LV95[0]); y0 = max(b[1], CLIP_BBOX_LV95[1])
         x1 = min(b[2], CLIP_BBOX_LV95[2]); y1 = min(b[3], CLIP_BBOX_LV95[3])
         if verbose:
-            print("\n  grid clipped to mask.clip_bbox_lv95 in config.yaml "
+            log.info("\n  grid clipped to mask.clip_bbox_lv95 in config.yaml "
                   "(null for the full extent)")
     else:
         x0, y0, x1, y1 = b
@@ -110,8 +113,8 @@ def psf_model_check(master: gpd.GeoDataFrame, thresholds: tuple[float, ...] = (0
                          "difference": r["box_gauss"] - r["gauss"]})
     out = pd.DataFrame(rows).set_index(["category", "threshold"])
     if verbose:
-        print("  observed / polygon area, by response model:")
-        print(out.round(3).to_string())
+        log.info("  observed / polygon area, by response model:")
+        log.info(out.round(3).to_string())
     return out
 
 
@@ -121,7 +124,7 @@ def build_mask(shp_dir: str | Path | None = None,
 
     Master parcel set, then PSF purity per category on the 10 m grid, written
     as float32 purity 0-1. No persistence band: persistence is already in the
-    parcel selection. The threshold is applied downstream (in Earth Engine).
+    parcel selection. The threshold is applied when the series are computed.
 
     Args:
         shp_dir: Folder with the yearly shapefiles (default: config).
@@ -133,48 +136,47 @@ def build_mask(shp_dir: str | Path | None = None,
     master = master_parcels(shp_dir)
     grid, (height, width) = output_grid(master)
 
-    print(f"  grid {width} x {height} px @ {RES} m, {CRS}")
-    print(f"  response: {psf_caption()}; fine grid {RES / SUBPIXEL:g} m")
+    log.info(f"  grid {width} x {height} px @ {RES} m, {CRS}")
+    log.info(f"  response: {psf_caption()}; fine grid {RES / SUBPIXEL:g} m")
 
     cell_ha = (RES * RES) / 1e4
     bands = []
-    print(f"\n  {'category':<12}{'parcels':>9}{'polygon ha':>12}"
+    log.info(f"\n  {'category':<12}{'parcels':>9}{'polygon ha':>12}"
           f"{'ha at >0':>11}{'ratio':>7}{'ha at >=' + f'{PURITY_MIN:g}':>13}"
           f"{'ratio':>7}")
     for name, codes in GROUPS.items():
         sub = master[master["_code"].isin(codes)]
         if sub.empty:
             bands.append((np.zeros((height, width), np.float32), name))
-            print(f"  {name:<12}{'—':>9}")
+            log.info(f"  {name:<12}{'—':>9}")
             continue
         p = purity_psf(sub.geometry, grid, (height, width))
         poly_ha = window_polygon_ha(sub.geometry, grid, (height, width))
         h0 = float((p > 0).sum()) * cell_ha
         h9 = float((p >= PURITY_MIN).sum()) * cell_ha
-        print(f"  {name:<12}{len(sub):>9,}{poly_ha:>12,.0f}{h0:>11,.0f}"
+        log.info(f"  {name:<12}{len(sub):>9,}{poly_ha:>12,.0f}{h0:>11,.0f}"
               f"{h0 / poly_ha:>7.2f}{h9:>13,.0f}{h9 / poly_ha:>7.2f}")
         bands.append((p, name))
 
-    print("\n  polygon ha: inside the raster window. The ratio at >0 MUST exceed 1:\n"
+    log.info("\n  polygon ha: inside the raster window. The ratio at >0 MUST exceed 1:\n"
           "  the PSF response spreads beyond every boundary. If it does not,\n"
           "  something is wrong.")
 
     out_tif = Path(out_tif) if out_tif else mask_path()
     write_raster(bands, grid, (height, width), out_tif)
-    from ..provenance import record, write_sidecar
-    from .parcels import _year_files
+    from drought.core.provenance import record, write_sidecar
+    from drought.mask.parcels import _year_files
     deliveries = {str(y): _sha_short(f) for y, f in _year_files(shp_dir).items()}
     write_sidecar(out_tif, record("mask", out_tif, {
         "deliveries_sha256": deliveries, "bands": [n for _, n in bands],
         "parcels": {n: int(master["_code"].isin(c).sum()) for n, c in GROUPS.items()},
         "master_parcels": len(master)}))
-    print(f"\n  wrote {out_tif} ({out_tif.stat().st_size / 1e6:.1f} MB)")
-    print("  band order: " + ", ".join(f"b{i} {n}"
+    log.info(f"\n  wrote {out_tif} ({out_tif.stat().st_size / 1e6:.1f} MB)")
+    log.info("  band order: " + ", ".join(f"b{i} {n}"
                                        for i, (_, n) in enumerate(bands, 1)))
-    print("\n  FLOAT purity 0-1. No persistence multiplication — persistence is "
-          "already in\n  the parcel selection. Threshold in GEE with .gte(0.9), "
-          "and upload with\n  pyramidingPolicy {'.default': 'sample'} or reduce "
-          "at the native 10 m.")
+    log.info("\n  FLOAT purity 0-1. No persistence multiplication — persistence is "
+          "already in\n  the parcel selection. The threshold (mask.purity_min) is "
+          "applied when the\n  series are computed, never baked into the file.")
     return master
 
 
@@ -195,7 +197,7 @@ def verify_mask() -> dict:
     Raises:
         drought.provenance.ProvenanceError: Naming the setting that differs.
     """
-    from ..provenance import verify
+    from drought.core.provenance import verify
     return verify(mask_path(), "mask")
 
 
@@ -244,7 +246,7 @@ def area_table(master: gpd.GeoDataFrame | None = None, site: str | None = None,
     master = master[master.geometry.area > 0]
     cell_ha = (RES * RES) / 1e4
 
-    out = {}
+    out: dict[str, dict] = {}
     for n in names:
         sub = master[master["_code"].isin(GROUPS[n])]
         a_ha = sub.geometry.area / 1e4
@@ -257,21 +259,21 @@ def area_table(master: gpd.GeoDataFrame | None = None, site: str | None = None,
                   "median_shape": float(shp), "observed_ha": obs,
                   "ratio": {t: (v / poly if poly else np.nan) for t, v in obs.items()}}
     if verbose:
-        print(f"{site or 'full extent'}  ·  master parcel set  ·  reference "
+        log.info(f"{site or 'full extent'}  ·  master parcel set  ·  reference "
               "clipped to the raster extent\n")
-        print(f"  {'category':<12}{'parcels':>9}{'polygon ha':>12}{'median ha':>11}"
+        log.info(f"  {'category':<12}{'parcels':>9}{'polygon ha':>12}{'median ha':>11}"
               f"{'shape':>8}")
         for n in names:
             d = out[n]
-            print(f"  {n:<12}{d['parcels']:>9,}{d['polygon_ha']:>12,.0f}"
+            log.info(f"  {n:<12}{d['parcels']:>9,}{d['polygon_ha']:>12,.0f}"
                   f"{d['median_ha']:>11.2f}{d['median_shape']:>8.2f}")
-        print("\n  observed area [ha] and ratio, by purity threshold:")
-        print("  " + f"{'category':<12}" + "".join(f"{'>' + f'{t:g}':>16}"
+        log.info("\n  observed area [ha] and ratio, by purity threshold:")
+        log.info("  " + f"{'category':<12}" + "".join(f"{'>' + f'{t:g}':>16}"
                                                    for t in thresholds))
         for n in names:
             cells = "".join(f"{out[n]['observed_ha'][t]:>9,.0f}"
                             f"{out[n]['ratio'][t]:>7.2f}" for t in thresholds)
-            print(f"  {n:<12}{cells}")
-        print("\n  the ratio at >0 must exceed 1 — the PSF spreads past every boundary.")
+            log.info(f"  {n:<12}{cells}")
+        log.info("\n  the ratio at >0 must exceed 1 — the PSF spreads past every boundary.")
     out["_window"] = win
     return out

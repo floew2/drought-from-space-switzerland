@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
-from . import targets as T
+from drought.synthetic import targets as T
 
 MIN_HA = 0.05                 # the master set's own lower bound: mask.sliver_floor_m2
 YEARS = list(range(2017, 2026))
@@ -137,6 +137,7 @@ def fit_area(median_ha: float, lt_05: float, mean_ha: float | None = None
         return [_tln_cdf(median_ha, mu, s) - 0.5, _tln_cdf(0.5, mu, s) - lt_05]
 
     def res3(p):
+        assert mean_ha is not None                 # only solved when a mean is given
         mu, s, b = p[0], np.exp(p[1]), median_ha + np.exp(p[2])
         return [_tln_cdf(median_ha, mu, s, b) - 0.5, _tln_cdf(0.5, mu, s, b) - lt_05,
                 np.log(_tln_mean(mu, s, b)) - np.log(mean_ha)]
@@ -311,7 +312,7 @@ def layout(df: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
         sub = df.loc[idx]
         width = max(np.sqrt(sub.w.mul(sub.h).sum() / 0.55), sub.w.max() * 1.05)
         bins = pd.qcut(sub.h.rank(method="first"), min(25, len(sub)), labels=False)
-        order = []
+        order: list = []
         for b in sorted(bins.unique(), reverse=True):
             members = sub.index[bins == b].to_numpy()
             order.extend(rng.permutation(members))
@@ -382,7 +383,7 @@ def deliveries(df: pd.DataFrame, rng: np.random.Generator):
         latest = year == YEARS[-1]
         absorbed = {}                              # right neighbour -> owner
         if not latest:
-            used = set()
+            used: set = set()
             for k, nb in enumerate(df.right_nb.to_numpy()):
                 if (nb >= 0 and codes[k, yi] and codes[k, yi] == codes[nb, yi]
                         and k not in used and nb not in used

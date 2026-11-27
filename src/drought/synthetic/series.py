@@ -30,12 +30,15 @@ real result (targets.INTEGRAL_PCT) for each site and regime.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 
 import numpy as np
 import pandas as pd
 from scipy import optimize
 
-from . import targets as T
+from drought.synthetic import targets as T
+
+log = logging.getLogger(__name__)
 
 YEARS = list(range(2019, 2027))
 CURRENT = 2026
@@ -233,7 +236,7 @@ def trajectories(rng: np.random.Generator, cfg=None, verbose: bool = True) -> pd
     Returns:
         DataFrame in the trajectory export schema.
     """
-    from .. import trajectory as tj
+    from drought.analysis import condition as tj
 
     out = []
     for site in ("linthebene", "rheintal", "alpstein"):
@@ -253,7 +256,7 @@ def trajectories(rng: np.random.Generator, cfg=None, verbose: bool = True) -> pd
         else:
             raise RuntimeError(f"{site}: no cloud draw matched the observed record")
         if verbose and calibrated:
-            print(f"    {site}: cloud draw {n_draws} accepted "
+            log.info(f"    {site}: cloud draw {n_draws} accepted "
                   f"({T.SYNTHETIC_SHARED_DAYS[0]}-{T.SYNTHETIC_SHARED_DAYS[1]} shared days, 8 years, as observed)")
         for regime in ("intensive", "extensive"):
             years_rng, sub_seed = setup[regime]
@@ -271,7 +274,9 @@ def trajectories(rng: np.random.Generator, cfg=None, verbose: bool = True) -> pd
                 continue
 
             def pct(k, build=build):
-                return tj.season_integral(tj.prepare(build(k), verbose=False))["integral_pct"]
+                r = tj.season_integral(tj.prepare(build(k), verbose=False))
+                assert r is not None
+                return r["integral_pct"]
 
             lo, hi = 0.0, 1.4                 # larger k = earlier collapse = deeper
             p_lo, p_hi = pct(lo), pct(hi)
@@ -284,7 +289,8 @@ def trajectories(rng: np.random.Generator, cfg=None, verbose: bool = True) -> pd
             df = build(k)
             if verbose:
                 res = tj.season_integral(tj.prepare(df, verbose=False))
-                print(f"    {site:<11}{regime:<10} k {k:.3f}  "
+                assert res is not None
+                log.info(f"    {site:<11}{regime:<10} k {k:.3f}  "
                       f"integral {res['integral_pct']:+.1f}% (target {target:+.0f}%)  "
                       f"rank {res['rank']}/{res['n_years']}  to DOY {res['upto']}  "
                       f"{res['n_days']} shared days")
@@ -361,7 +367,7 @@ def cut_series(rng: np.random.Generator, parcels: pd.DataFrame, sites=("linthebe
         schema; `truth` has one row per parcel-year with the true cut days and
         the observations a human would see.
     """
-    from ..config import CFG
+    from drought.core.config import CFG
 
     lu = CFG.landuse
     wide, truth = {}, []
@@ -376,8 +382,8 @@ def cut_series(rng: np.random.Generator, parcels: pd.DataFrame, sites=("linthebe
         for year in YEARS:
             acq = acquisitions(rng, site, year)
             days = np.arange(1, 366, dtype=float)
-            cols = {}
-            meta = {"parcel_id": [], "lnf_code": [], "area_ha": [], "elev_m": []}
+            cols: dict[str, dict] = {}
+            meta: dict[str, list] = {"parcel_id": [], "lnf_code": [], "area_ha": [], "elev_m": []}
             for p in pick.itertuples():
                 regime = "intensive" if p.code in lu.intensive else "extensive"
                 cuts = _cut_schedule(rng, regime, year)
@@ -438,7 +444,7 @@ def hand_labels(rng: np.random.Generator, truth: pd.DataFrame, n_by_site=None) -
     Returns:
         {site: {"<parcel_id>|<year>": [doy, ...]}}
     """
-    from ..config import CFG
+    from drought.core.config import CFG
 
     n_by_site = n_by_site or {"linthebene": 143, "rheintal": 25}
     lo, hi = CFG.detect.season
