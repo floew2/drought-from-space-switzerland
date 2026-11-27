@@ -8,12 +8,12 @@
 Matplotlib · Pydantic · pytest · mypy · GitHub Actions
 
 **Background.** In summer 2026, Switzerland was hit hard by drought. At St. Gallen, rainfall to
-mid-October reached only 61 % of the long-term median, the driest such period
+late November reached only 67 % of the 1991–2020 median, the driest such period
 in 31 years. Lake levels fell to record lows, the grass partly stopped regrowing, and
 many farms had to feed their winter reserves in summer. This project looks at
 the drought from space, using free and open satellite data
 ([Copernicus Sentinel-2](https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-2),
-processed in [Google Earth Engine](https://earthengine.google.com/)) together
+as swisstopo's [swissEO S2-SR](https://www.swisstopo.admin.ch/en/satelliteimage-swisseo-s2-sr)) together
 with open weather-station records. Its focus is grassland in three landscapes of
 the canton of St. Gallen: the Linthebene, the St. Galler Rheintal (both valley
 floors) and the Alpstein (a summering area). A secondary focus is making the
@@ -28,7 +28,8 @@ which are not part of this repository.
 meadows browned field by field in summer 2026.*
 
 **Data and method.** The 2026 season is compared with a 2019–2025 baseline,
-using Sentinel-2 time series at 10 m (cloud-masked with Cloud Score+), the
+using Sentinel-2 time series at 10 m (swissEO S2-SR v200, with its cloud,
+terrain-shadow and snow masks), the
 cantonal agricultural parcel maps for 2017–2025 and MeteoSwiss station data.
 Meadows are selected by their official land-use (LNF) codes; a field is used
 only if it was the same kind of meadow (intensive or extensive) in every year
@@ -64,25 +65,25 @@ each pixel also sees past the field edge; at ≥ 0.9, 79–91 % of it remains.*
 
 ## Results
 
-From May to September, the meadows' moisture index stayed 23–29 % below its
-2019–2025 median in the Linthebene and the Rheintal, the lowest of the eight
-years at both. For the Alpstein, a summering area, no season total is reported;
-the maps below show a similarly widespread deficit there.
+From May to September, the meadows' moisture index stayed 22–25 % below its
+2019–2025 median in the Linthebene and the Rheintal, and 19–24 % below it on the
+Alpstein, a summering area. 2026 was the lowest of the eight years at every
+site, for intensive and extensive meadows alike.
 
-- Spring was normal. The meadows collapsed through July, bottomed out in
-  mid-August and recovered from early September.
-- St. Gallen recorded 690 mm of rain by 12 October against a median of 1,135 mm.
-  The water balance P − ET0 stood at −74 mm against a median of +494 mm.
+- Spring ran at or above normal. The meadows collapsed through July, bottomed
+  out in mid-August and recovered from early September.
+- St. Gallen recorded 861 mm of rain by 25 November against a median of 1,276 mm.
+  The water balance P − ET0 stood at +64 mm against a median of +598 mm.
 - From the hand labels, the last cut of the season came a median 12 days earlier
   in 2026 (15 of 22 fields). With 22 fields, that is not yet statistically
   significant (sign test p ≈ 0.13).
 - **Mowing detection, validated like a model.** The rules were tuned on 42
   labelled field-years and then frozen; 78 field-years labelled later serve as a
-  hold-out. On all 136 scorable field-years: precision 0.84, recall 0.90,
-  F1 0.87 (0.90 without 2026). In 2026 precision drops to 0.64: 23 of 34 false
-  detections fall in the late-August recovery, which mimics regrowth after a
-  cut, as the synthetic data had predicted. A changepoint alternative scored
-  F1 0.81 and was rejected.
+  hold-out. On all 136 scorable field-years: precision 0.84, recall 0.81,
+  F1 0.82 (0.84 without 2026). In 2026 precision drops to 0.65: 22 of 34 false
+  detections fall between early August and mid-September, in the trough and
+  the recovery, which mimic regrowth after a cut, as the synthetic data had
+  predicted. A changepoint alternative scored F1 0.79 and was rejected.
 
 ![Precipitation at St. Gallen, grassland NDMI at Linthebene, and one meadow's mowing in 2025 against 2026](docs/figures/real/overview.png)
 
@@ -94,7 +95,7 @@ regrowing after the July cut.*
 ![Per-field NDMI anomaly in 2026: St. Galler Rheintal, Linthebene and Alpstein / Churfirsten](docs/figures/real/field_anomaly_3sites.jpg)
 
 *NDMI of each grassland parcel in 2026 against its own 2019–2025 median, in
-standard deviations; red is drier than usual. From top: St. Galler Rheintal,
+standard deviations; red is drier than usual. From left: St. Galler Rheintal,
 Linthebene, Alpstein / Churfirsten. Window May–August; at Alpstein, mid-July to
 mid-September.*
 
@@ -125,10 +126,8 @@ stamped SYNTHETIC; they show what each step does, not what actually happened in 
 The satellite data comes from swisstopo's
 [swissEO S2-SR](https://www.swisstopo.admin.ch/en/satelliteimage-swisseo-s2-sr)
 (Sentinel-2 surface reflectance for Switzerland, v200), read locally: no
-account is needed; swissEO covers Switzerland only. The results above come from
-a first run in Google Earth Engine, which this version no longer uses; they
-will be replaced by the swissEO run. The grassland mask needs the canton's
-parcel data over several years.
+account is needed; swissEO covers Switzerland only. The grassland mask needs
+the canton's parcel data over several years.
 
 | step                              | needs                                        | open? |
 |-----------------------------------|----------------------------------------------|---|
@@ -232,8 +231,7 @@ drought-from-space-switzerland/
 ## Data and licence
 
 Code: MIT ([LICENSE](LICENSE)). Contains modified Copernicus Sentinel data
-(2019–2026); the results quoted above were processed in Google Earth Engine with
-Cloud Score+ (Pasquarella et al. 2023). swissEO S2-SR and VHI: © swisstopo, Contains modified Copernicus
+(2019–2026). swissEO S2-SR and VHI: © swisstopo, Contains modified Copernicus
 Sentinel data 2019–2026 ([terms](https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices)). Station data: MeteoSwiss Open Data (CC BY 4.0), *Quelle: MeteoSchweiz*.
 Elevation: CGIAR-CSI SRTM 90 m. Field geometries: Nutzungsflächen 2017–2025,
 © Kanton St.Gallen, provided by the Amt für Raumentwicklung und Geoinformation
