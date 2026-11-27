@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1
+
+### Changed
+- README, METHOD and gallery report the swissEO run of 27 November 2026, with
+  its figures; Alpstein now has season integrals for both meadow types.
+
 ## 2.0.0
 
 ### Changed

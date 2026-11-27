@@ -937,7 +937,7 @@ wheels = [
 
 [[package]]
 name = "drought-from-space"
-version = "2.0.0"
+version = "2.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "geopandas" },

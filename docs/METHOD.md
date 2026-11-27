@@ -22,17 +22,15 @@ the Alpstein.
 
 | input | what | used for |
 |---|---|---|
-| Sentinel-2 L2A, 10 m, 2019–2026 | spectral indices, Cloud Score+ cloud mask | condition and cuts |
+| swissEO S2-SR v200 (swisstopo), Sentinel-2 surface reflectance, 10 m, 2019–2026 | spectral indices; cloud (OmniCloudMask), terrain-shadow and snow layers | condition, anomaly and cuts |
 | Nutzungsflächen 2017–2025, Kanton St.Gallen (used with permission) | yearly field outlines with land-use codes | which pixels are grassland, of which kind |
 | MeteoSwiss station St. Gallen, 1991–2026 | daily precipitation and temperature | independent check |
 | swissEO VHI (swisstopo, MeteoSwiss), 2026 | Vegetation Health Index, 10 m, daily | independent check |
 
-The results in this document were extracted in Google Earth Engine. The
-pipeline now reads swisstopo's swissEO S2-SR v200 instead, the same
-Sentinel-2 data co-registered and reprojected to LV95, with its own cloud mask
-(OmniCloudMask), terrain-shadow and snow layers, downloaded once and computed
-locally (`drought fetch`, `drought run`). The numbers here will be updated
-from that run.
+swissEO S2-SR is Sentinel-2 surface reflectance for Switzerland, co-registered,
+reprojected to LV95 and mosaicked per satellite pass. Each mosaic is downloaded
+once per site and computed locally (`drought fetch`, `drought run`). Run of
+27 November 2026.
 
 2026 is compared with 2019–2025. That baseline includes the 2022 drought, so
 the 2026 anomaly is, if anything, understated. Everything is in CH1903+ / LV95
@@ -140,17 +138,18 @@ anomaly against 2019–2025, by threshold:
 
 | | at 0.00 | at 0.90 (used) | at 0.95 | spread 0.50–0.95 |
 |---|---|---|---|---|
-| Linthebene intensive | −0.117 | −0.122 | −0.122 | 3.2 % |
-| Linthebene extensive | −0.096 | −0.114 | −0.118 | 14.5 % |
-| Rheintal intensive | −0.085 | −0.089 | −0.090 | 3.8 % |
-| Rheintal extensive | −0.077 | −0.086 | −0.088 | 8.8 % |
+| Linthebene intensive | −0.101 | −0.105 | −0.105 | 3.7 % |
+| Linthebene extensive | −0.083 | −0.099 | −0.102 | 14.7 % |
+| Rheintal intensive | −0.079 | −0.082 | −0.082 | 3.0 % |
+| Rheintal extensive | −0.078 | −0.091 | −0.094 | 14.2 % |
+| Alpstein intensive | −0.095 | −0.098 | −0.099 | 4.3 % |
+| Alpstein extensive | −0.099 | −0.124 | −0.129 | 16.7 % |
 
 The anomaly is negative at every threshold, and grows as the threshold
 tightens: mixed pixels dilute the drought signal, most of all on small
-extensive fields. At 0.90 it is within 0.7–3.3 % of the strictest value, so the
+extensive fields. At 0.90 it is within 0.5–3.9 % of the strictest value, so the
 reported signal is slightly understated, never inflated, while going to 0.95
-would cost about a fifth of the extensive pixels. (At Alpstein, the ranking of the
-two meadow types flips near 0.5, so they are not compared there.)
+would cost about a fifth of the extensive pixels.
 
 ---
 
@@ -161,22 +160,26 @@ two meadow types flips near 0.5, so they are not compared there.)
 For each site, management type and acquisition date, the pipeline takes the
 mean index over pixels with purity ≥ 0.90. Before any curve is drawn:
 
-- **Clouds.** A pixel is used only if its Cloud Score+ value is at least 0.60.
-  A date is dropped if less than 80 % of the site is clear, because a partly
-  clouded scene samples *different fields*, not a random subset.
-- **Overlapping tiles.** Two Sentinel-2 tiles seeing the same ground on the
-  same day are merged, weighted by pixel count.
+- **Clouds, shadow, snow.** A pixel is used only if swissEO's cloud mask calls
+  it clear (thin cloud is excluded too), it is not in cast terrain shadow or
+  facing away from the sun, and it is not snow. A date is dropped if less than
+  60 % of the site's grassland is clear, because a partly clouded scene samples
+  *different fields*, not a random subset.
+- **One mosaic per pass.** swissEO merges the tiles of a satellite pass, so no
+  ground is counted twice on the same day.
 - **Residual haze.** Thin haze passes the cloud mask, but depresses red-band
   NDVI far more than SWIR-based NDMI. Dates where NDVI drops while NDMI does not
-  are flagged with robust z-scores (about 17 % of dates, evenly across years).
+  are flagged with robust z-scores (15–17 % of dates, evenly across years).
 
 ### 3.2 The season integral
 
 The headline is the area under the NDMI curve from 1 May to 30 September
 (day of year, DOY, 121–273), relative to the 2019–2025 median. Every year is integrated over
-exactly the days **all** years observed (103–114 of 153), so a cloudier year is
-not penalised for missing data. Gaps longer than 30 days are left empty rather
-than interpolated.
+exactly the days **all** remaining years observed (105–153 of 153), so a
+cloudier year is not penalised for missing data. Gaps longer than 30 days are
+left empty rather than interpolated. A baseline year with less than 70 % of the
+window covered is dropped; with fewer than five baseline years left, the rank
+is flagged as weak.
 
 ### 3.3 Why NDMI
 
@@ -188,30 +191,40 @@ it is only read against each site's own history.
 
 ![Linthebene, intensive meadows: 2026 NDMI against the 2019–2025 envelope](figures/real/vi_trajectory_NDMI_intensive_linthebene.png)
 
-| season NDMI integral | Linthebene | St. Galler Rheintal |
-|---|---|---|
-| intensive meadows | −27 % | −23 % |
-| extensive meadows | −29 % | −28 % |
+| season NDMI integral (baseline years) | Linthebene | St. Galler Rheintal | Alpstein |
+|---|---|---|---|
+| intensive meadows | −24 % (7) | −24 % (6) | −19 % (4) |
+| extensive meadows | −25 % (7) | −22 % (4) | −24 % (4) |
 
-2026 was the lowest of eight years in all four series. Spring ran at or above
-normal; the index collapsed through July to 0.09–0.15 in mid-August and
-recovered sharply from early September. Both management types agree, so mowing
-is not the explanation. The Rheintal, near the Rhine with shallower
-groundwater, is consistently milder.
+2026 was the lowest of the eight years in all six series. Spring ran at or
+above normal; at Linthebene the index collapsed through July to below 0.1 in
+mid-August and recovered sharply from early September. Both management types
+agree, so mowing is not the explanation. Where only four baseline years remain
+(cloudy summers in the Rheintal and on the Alpstein), the rank rests on a weak
+envelope.
 
-**Robustness.** With the haze filter off, three integrals move by less than
-half a point and Linthebene extensive by 2.8 points; 2026 still ranks last
-everywhere. Ending the window at DOY 245 instead of 273 changes the integrals
-by about 3 points or less.
+**Robustness.** With the stricter coverage rule of 80 %, fewer baseline years
+survive and Alpstein extensive drops out, but the integrals stay between −22 %
+and −30 % and 2026 still ranks last everywhere. Counting thin cloud as clear
+keeps more years and moves the integrals by at most three points.
+
+![Vegetation Health Index on pure grassland cells, 2026](figures/real/vhi_2026.png)
+
+**Cross-check.** swisstopo's Vegetation Health Index (VHI, with MeteoSwiss)
+combines NDVI with land-surface temperature, each scaled against 1991–2020. On
+the same pure cells it sat mostly in the stressed range (below 30) from July to
+late August in both valleys and began to rise only at the end of August: an
+independent source showing the same timing.
 
 ### 3.5 Per-field anomaly maps
 
 ![Per-field NDMI anomaly in 2026: St. Galler Rheintal, Linthebene and Alpstein / Churfirsten](figures/real/field_anomaly_3sites.jpg)
 
-Each year becomes one median NDMI composite over the window (May–August; at
-Alpstein, after snowmelt, 15 July – 15 September). 2026 is a z-score against
-the seven baseline composites, averaged per parcel over pixels with purity
-≥ 0.90.
+For each parcel, NDMI is averaged over its pure cells (purity ≥ 0.90) on every
+mosaic where at least half of them are clear, then over the year's window
+(DOY 121–243, May–August; at Alpstein, after snowmelt, DOY 196–258, mid-July to
+mid-September). 2026 is then a z-score against the parcel's own baseline years:
+their median and standard deviation, with at least four years.
 
 ---
 
@@ -221,11 +234,12 @@ the seven baseline composites, averaged per parcel over pixels with purity
 
 The current year and the 1991–2020 reference come from the same station
 series, aligned by calendar day, so a difference cannot come from a change of
-instrument. To 12 October 2026: **690 mm against a median of 1,135 mm**, 61 %
+instrument. To 25 November 2026: **861 mm against a median of 1,276 mm**, 67 %
 and the driest of 31 years.
 
 Rain alone understates a hot drought, so the second panel shows the climatic
-water balance P − ET0 (Hargreaves): **−74 mm against a median of +494 mm**.
+water balance P − ET0 (Hargreaves): **+64 mm against a median of +598 mm**.
+It fell below zero in July and stayed there until a wet November.
 This is atmospheric supply against demand, not soil moisture.
 
 ---
@@ -254,8 +268,8 @@ A cut is a sudden drop in NDMI, confirmed by NDVI:
 | a trough followed by steep regrowth also counts | catches a cut hidden in a data gap |
 | events closer than 21 days merge | the agronomic minimum between cuts |
 
-The cut series use a Cloud Score+ threshold of 0.50, the value the detector was
-tuned and scored with.
+The cut series use the same cloud rule as the condition series, and skip
+mosaics where more than 80 % of the site's grassland is unusable.
 
 ### 5.3 Validation
 
@@ -267,9 +281,13 @@ detection is matched one-to-one to a label within 12 days.
 
 | | precision | recall | F1 |
 |---|---|---|---|
-| all 136 scorable field-years | 0.841 | 0.898 | **0.868** |
-| without 2026 | 0.901 | 0.892 | 0.897 |
-| 2026 only | 0.642 | 0.924 | 0.758 |
+| all 136 scorable field-years | 0.837 | 0.809 | **0.823** |
+| without 2026 | 0.905 | 0.782 | 0.839 |
+| 2026 only | 0.646 | 0.939 | 0.765 |
+
+The rules were tuned on Earth Engine series (Cloud Score+ cloud mask) and
+scored F1 0.87 there; on swissEO they are unchanged. Of the 73 missed cuts,
+30 are the last cut of a season.
 
 The labels are read off the same curves the detector uses, so this measures
 agreement with an expert reading of the signal, not with a farm diary.
@@ -277,7 +295,7 @@ agreement with an expert reading of the signal, not with a farm diary.
 ### 5.4 The rejected alternative
 
 A penalised changepoint fit was built as the principled alternative and scored
-on the same labels. It over-segments and reaches F1 0.805, so it was rejected.
+on the same labels. It over-segments and reaches F1 0.788, so it was rejected.
 It stays in the code (`changepoint.py`). With 143 labelled field-years from one
 site, a transparent, frozen rule set is more defensible than a learned model.
 
@@ -292,12 +310,12 @@ and farm effects.
 
 On synthetic data, the frozen rules showed a weak spot: a deep drought trough
 and steep recovery look just like a cut and regrowth. The real labels
-confirm it: 23 of the detector's 34 false cuts in 2026 fall between DOY 220
+confirm it: 22 of the detector's 34 false cuts in 2026 fall between DOY 220
 and 260, the trough and the recovery.
 
 | DOY | 180–200 | 200–220 | 220–240 | 240–260 | 260–280 |
 |---|---|---|---|---|---|
-| 2026 false positives | 2 | 5 | **18** | 5 | 4 |
+| 2026 false positives | 2 | 5 | **17** | 5 | 5 |
 
 So the last-cut comparison ends at DOY 228 (mid-August) for every year, and it
 is computed **from the hand labels alone**. 22 fields are labelled both in 2026
@@ -320,7 +338,7 @@ Cutting frequency falls with altitude, so every field carries its elevation
 
 The real parcel data cannot be published, so `drought.synthetic` generates
 stand-ins with the same files and schemas: yearly cadastres with redrawn, split
-and merged outlines; Earth Engine exports with clouds, haze, mowing and drought;
+and merged outlines; index series with clouds, haze, mowing and drought;
 hand labels; and a MeteoSwiss-format station series. The generator is
 calibrated so that the same code reproduces the real headline numbers. Matching
 a calibrated number shows only that the pipeline is wired correctly. The area
@@ -339,8 +357,7 @@ What synthetic data cannot do is show that the drought happened.
   with one baseline year. More baseline labels for the same fields would
   strengthen it most cheaply. The detector has not been validated outside
   Linthebene.
-- **Full cut extraction.** A per-site sample of 250 fields over eight years
-  exceeds the free Earth Engine quota; only the labelled field-years were
-  extracted.
+- **Thin cloud.** Counting swissEO's thin-cloud class as clear would keep more
+  dates, but its effect on the cut detector is untested, so it is excluded.
 - **NDMI is a proxy.** It tracks canopy water and density, not yield. The
   integral is a relative measure against each site's own history.

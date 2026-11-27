@@ -30,24 +30,41 @@ Intensive grassland at Linthebene, in the Rheintal and at Alpstein, 500 m
 across. From left: Sentinel-2 false colour, the field outlines, and purity at
 three thresholds (white pure, grey mixed, black discarded). The percentages are
 retained area against field area: above 100 % at a low threshold, the response
-reaches past the fields. Current mask, run of 17 October 2026
-(`drought ee rgb`, then `drought mask overview`).
+reaches past the fields. Current mask, run of 17 October 2026 (`drought mask
+overview`); the false colour is from that run's Earth Engine composite.
 [METHOD §2.4](METHOD.md#24-what-the-threshold-costs).
 
 ## Grassland condition, season NDMI against 2019–2025
 
-Run of 14 October 2026. Mask built with the box ⊛ Gaussian response model and
-no size filter ([METHOD §2](METHOD.md#2-the-grassland-mask)); integrals over
-DOY 121–273.
+swissEO S2-SR v200, run of 27 November 2026. Mask built with the box ⊛ Gaussian
+response model and no size filter ([METHOD §2](METHOD.md#2-the-grassland-mask));
+integrals over DOY 121–273.
 
 | | intensive meadows | extensive meadows |
 |---|---|---|
-| **Linthebene** | ![](figures/real/vi_trajectory_NDMI_intensive_linthebene.png) −27 %, rank 1 of 8 | ![](figures/real/vi_trajectory_NDMI_extensive_linthebene.png) −29 %, rank 1 of 8 |
-| **St. Galler Rheintal** | ![](figures/real/vi_trajectory_NDMI_intensive_rheintal.png) −23 %, rank 1 of 8 | ![](figures/real/vi_trajectory_NDMI_extensive_rheintal.png) −28 %, rank 1 of 8 |
+| **Linthebene** | ![](figures/real/vi_trajectory_NDMI_intensive_linthebene.png) −24 %, rank 1 of 8 | ![](figures/real/vi_trajectory_NDMI_extensive_linthebene.png) −25 %, rank 1 of 8 |
+| **St. Galler Rheintal** | ![](figures/real/vi_trajectory_NDMI_intensive_rheintal.png) −24 %, rank 1 of 7 | ![](figures/real/vi_trajectory_NDMI_extensive_rheintal.png) −22 %, rank 1 of 5 |
+| **Alpstein** | ![](figures/real/vi_trajectory_NDMI_intensive_alpstein.png) −19 %, rank 1 of 5 | ![](figures/real/vi_trajectory_NDMI_extensive_alpstein.png) −24 %, rank 1 of 5 |
 
 Top panel: site-mean NDMI, with the 2019–2025 envelope and median, 2026 in red,
 and the raw 2026 observations as dots. Bottom panel: the season integral over
-the days every year observed. [METHOD §3](METHOD.md#3-grassland-condition).
+the days every year observed. Where a rank is out of fewer than 8, cloudy
+baseline years were dropped. [METHOD §3](METHOD.md#3-grassland-condition).
+
+## Per-field anomaly
+
+![Per-field NDMI anomaly in 2026: St. Galler Rheintal, Linthebene and Alpstein / Churfirsten](figures/real/field_anomaly_3sites.jpg)
+
+Each parcel's 2026 NDMI against its own 2019–2025 median, in standard
+deviations; red is drier than usual. Window May–August; at Alpstein, mid-July
+to mid-September. [METHOD §3.5](METHOD.md#35-per-field-anomaly-maps).
+
+## Cross-check: Vegetation Health Index
+
+![Vegetation Health Index on pure grassland cells, 2026](figures/real/vhi_2026.png)
+
+swisstopo's VHI (with MeteoSwiss), on the same pure grassland cells. Below 30
+is stressed. [METHOD §3.4](METHOD.md#34-result).
 
 ## You can watch the mowing stop
 
@@ -62,8 +79,8 @@ presentation. [METHOD §5](METHOD.md#5-cut-detection).
 
 ![Cumulative precipitation and P − ET0, 2026 against 1991–2020](figures/real/precip_stg_2026.png)
 
-690 mm to 12 October, 61 % of the 1991–2020 median, the driest of 31 years.
-P − ET0 (Hargreaves) stood at −74 mm, against a median of +494 mm.
+861 mm to 25 November, 67 % of the 1991–2020 median, the driest of 31 years.
+P − ET0 (Hargreaves) stood at +64 mm, against a median of +598 mm.
 Source: MeteoSwiss. [METHOD §4](METHOD.md#4-precipitation-and-water-balance).
 
 ## Field size and shape, and what the purity threshold costs

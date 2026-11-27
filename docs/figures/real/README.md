@@ -19,16 +19,14 @@ Expected files:
 
 | file | from | run date |
 |---|---|---|
-| `vi_trajectory_NDMI_intensive_linthebene.png` | `drought report --aoi linthebene --only condition` | 14 Oct 2026 |
-| `vi_trajectory_NDMI_extensive_linthebene.png` | same | 14 Oct 2026 |
-| `vi_trajectory_NDMI_intensive_rheintal.png` | `drought report --aoi rheintal --only condition` | 14 Oct 2026 |
-| `vi_trajectory_NDMI_extensive_rheintal.png` | same | 14 Oct 2026 |
-| `precip_stg_2026.png` | `drought precip --download` | 14 Oct 2026 (data to 12 Oct) |
+| `vi_trajectory_NDMI_{intensive,extensive}_{linthebene,rheintal,alpstein}.png` | `drought report --only condition` | 27 Nov 2026 |
+| `field_anomaly_3sites.jpg` | the three `anomaly_NDMI_2026.png` of `drought report --only anomaly`, side by side | 27 Nov 2026 |
+| `vhi_2026.png` | `drought report --only vhi` | 27 Nov 2026 |
+| `precip_stg_2026.png` | `drought report --only precip` | 27 Nov 2026 (data to 25 Nov) |
+| `overview.png` | README figure: upper panels of `precip_stg_2026.png` and `vi_trajectory_NDMI_intensive_linthebene.png`, with `mowing_one_field_2025_2026.png` below | 27 Nov 2026 |
 | `parcel_size.png` | `drought mask figures` | 14 Oct 2026 |
 | `area_check_all.png` | same | 14 Oct 2026 |
-| `mask_overview_intensive.png` | `drought ee rgb`, then `drought mask overview` | 17 Oct 2026 |
-| `overview.png` | README figure: upper panels of `precip_stg_2026.png` and `vi_trajectory_NDMI_intensive_linthebene.png`, with `mowing_one_field_2025_2026.png` below | 16 Oct 2026 |
-| `field_anomaly_3sites.jpg` | per-field NDMI z-score maps of the three sites, Code Editor map script, current mask | 20 Oct 2026 |
+| `mask_overview_intensive.png` | `drought mask overview` (false colour from the Earth Engine run) | 17 Oct 2026 |
 | `mowing_one_field_2025_2026.png` | one field's NDMI/NDVI series from the presentation (no ID, no location) | Aug 2026 |
 | `rheintal_s2_truecolour.jpg` | Earth Engine Code Editor, from the presentation | Aug 2026 (window 15 Jun – 31 Jul) |
 

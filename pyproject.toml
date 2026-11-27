@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "drought-from-space"
-version = "2.0.0"
+version = "2.0.1"
 description = "Reading the 2026 Swiss grassland drought from Sentinel-2 and MeteoSwiss station data"
 readme = "README.md"
 license = "MIT"
