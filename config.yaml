@@ -212,7 +212,7 @@ analysis:
   min_obs_per_year: 8
   max_gap_days: 30
   smooth_days: 15
-  min_coverage: 0.8     # share of the site mask that must be clear
+  min_coverage: 0.6     # share of the site mask that must be clear
 
 evaluate:
   match_tolerance_days: 12
