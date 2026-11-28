@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: >-
+  If this software, or the pixel-purity method it implements, is useful in your
+  work, an acknowledgement is appreciated. Please cite it as below.
+type: software
+title: "Reading a Drought from Space: PSF-weighted grassland condition and cut detection from Sentinel-2"
+abstract: >-
+  A remote-sensing pipeline for the 2026 drought in the Canton of St. Gallen.
+  It builds a point-spread-function-weighted pixel purity mask over a
+  persistence-filtered parcel set, derives season NDMI trajectories and
+  per-field anomalies per management type from swissEO S2-SR (Sentinel-2), and
+  detects grassland cuts with a detector scored against hand labels. It runs
+  end to end on synthetic data, so no restricted input data is needed to
+  reproduce the pipeline.
+authors:
+  - family-names: Löw
+    given-names: Fabian
+repository-code: "https://github.com/floew2/drought-from-space-switzerland"
+url: "https://floew2.github.io/drought-from-space-switzerland/"
+license: MIT
+version: 2.0.1
+date-released: "2026-11-27"
+keywords:
+  - remote sensing
+  - Sentinel-2
+  - swissEO
+  - point spread function
+  - pixel purity
+  - grassland
+  - drought
+  - mowing detection
+  - Switzerland

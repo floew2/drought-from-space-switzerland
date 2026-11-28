@@ -31,6 +31,7 @@ from drought.analysis.condition import (
     SMOOTH_DAYS,
 )
 from drought.core.config import CFG, figures_dir
+from drought.viz import credit
 
 __all__ = ["figure", "plot"]
 
@@ -131,13 +132,8 @@ def figure(site: str, regime: str, sub: pd.DataFrame):
                  bbox=dict(facecolor="#161b22", edgecolor="#30363d",
                            boxstyle="round,pad=0.4"))
 
-    # The credit is the x label: the month ticks need no label, and a credit
-    # placed freely in the figure margin collided with the ticks.
-    axes[1].set_xlabel(f"Sentinel-2, swissEO S2-SR (swisstopo) · {C.INDEX}\n"
-                       "parcels: Nutzungsflächen, Kanton St.Gallen",
-                       loc="left", fontsize=7, color="#6e7681")
-    out = str(figures_dir(site) / f"vi_trajectory_{C.INDEX}_{regime}.png")
-    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    out = credit.save(fig, figures_dir(site) / f"vi_trajectory_{C.INDEX}_{regime}.png",
+                      "s2", "parcels")
     log.info("  -> %s", out)
     plt.close(fig)
 

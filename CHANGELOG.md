@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- A credit line beneath every saved figure: the attribution each data source
+  asks for (swisstopo / Copernicus, Kanton St.Gallen, MeteoSwiss) and the
+  project credit (`project.credit`).
+- CITATION.cff and a Citation section in the README.
+
 ## 2.0.1
 
 ### Changed

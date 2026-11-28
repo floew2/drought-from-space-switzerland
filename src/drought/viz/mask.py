@@ -17,6 +17,7 @@ from drought.mask import GROUPS, PURITY_MIN, RES, master_parcels, psf_caption, p
 from drought.mask.build import area_table, verify_mask
 from drought.mask.io import site_bounds_lv95
 from drought.mask.purity import _burn
+from drought.viz import credit
 
 log = logging.getLogger(__name__)
 
@@ -160,7 +161,7 @@ def figure_purity_map(site: str, group: str = "mown", out: str | Path | None = N
                   f"{kept:.0f}% of cells are retained.",
                   fontsize=7.5, color="#6e7681")
     out = out or (figures_dir("mask") / f"purity_map_{site}_{group}.png")
-    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    credit.save(fig, out, "parcels")
     log.info(f"  -> {out}")
     plt.show()
     return a
@@ -230,7 +231,7 @@ def area_check(site: str | None = None,
                   "parcel size and shape index (4.0 = a perfect square).",
                   fontsize=7, color="#6e7681")
     out = out or (figures_dir("mask") / f"area_check_{site or 'all'}.png")
-    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    credit.save(fig, out, "parcels")
     log.info(f"\n  -> {out}")
     plt.show()
     return out_d
@@ -419,7 +420,7 @@ def figure_purity_explainer(site: str = "linthebene", group: str = "intensive",
              fontsize=7.5, color="#6e7681", ha="left", va="bottom")
 
     out = out or (figures_dir("mask") / f"purity_explainer_{site}_{group}.png")
-    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    credit.save(fig, out, "parcels")
     log.info(f"  -> {out}")
     plt.show()
     return curves
@@ -721,7 +722,7 @@ def figure_mask_overview(sites: list[str] | None = None,
     fig.tight_layout(rect=(0.004, 0.055, 0.998, 0.958))
     fig.subplots_adjust(hspace=0.06, wspace=0.035)
     out = out or (figures_dir("mask") / f"mask_overview_{group}.png")
-    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    credit.save(fig, out, "s2", "parcels")
     log.info("  -> %s", out)
     plt.close(fig)
     return rows
@@ -857,7 +858,7 @@ def figure_parcel_size(master=None, group: str | None = None, out: str | Path | 
     fig.supxlabel(f"10 m cells in a median field:  {cells}", fontsize=7.5,
                   color="#6e7681")
     out = out or (figures_dir("mask") / "parcel_size.png")
-    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    credit.save(fig, out, "parcels")
     log.info(f"\n  -> {out}")
     plt.show()
     return data
@@ -1055,7 +1056,7 @@ def figure_psf(out: str | Path | None = None, mtf: float | None = None,
              "slightly wider along-track, and one representative MTF stands "
              "for all bands.", fontsize=7, color="#6e7681")
     out = out or (figures_dir("mask") / "psf.png")
-    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    credit.save(fig, out)
     log.info(f"  sigma {sig:.2f} m, FWHM {fwhm:.1f} m  ->  {out}")
     plt.show()
     return {"sigma": float(sig), "fwhm": float(fwhm),
