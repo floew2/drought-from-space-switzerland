@@ -52,7 +52,8 @@ def stamp_figures() -> None:
             self.text(0.5, 0.5, "SYNTHETIC", fontsize=64, color="#ff3b30", alpha=0.10,
                       ha="center", va="center", rotation=28, fontweight="bold",
                       transform=self.transFigure, zorder=1000)
-            self.text(0.995, 0.003, STAMP, fontsize=7, color="#ff3b30", ha="right",
+            # Above the figure, outside it: inside, it collided with tick labels.
+            self.text(0.995, 1.005, STAMP, fontsize=7, color="#ff3b30", ha="right",
                       va="bottom", fontweight="bold", transform=self.transFigure,
                       zorder=1000,
                       bbox=dict(facecolor="black", edgecolor="none", alpha=0.85, pad=1.5))

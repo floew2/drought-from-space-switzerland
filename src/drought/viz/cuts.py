@@ -17,6 +17,7 @@ import pandas as pd
 from drought.analysis.detect import detect_all, detect_parcel_year
 from drought.analysis.metrics import equalised, last_cut, last_cut_paired, late_fraction
 from drought.core.config import CFG, figures_dir
+from drought.viz import credit
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def _style(axes, square=False):
 
 def _save(fig, site, name):
     p = figures_dir(site) / f"{name}.png"
-    fig.savefig(p, dpi=180, facecolor=fig.get_facecolor())
+    credit.save(fig, p, "s2", "parcels")
     log.info("  -> %s", p)
     return p
 

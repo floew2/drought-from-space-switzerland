@@ -29,6 +29,7 @@ class _Section(BaseModel):
 class Project(_Section):
     current_year: int
     baseline_years: list[int] = Field(min_length=3)
+    credit: str
 
 
 class Paths(_Section):

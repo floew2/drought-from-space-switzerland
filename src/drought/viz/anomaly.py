@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from drought.core.config import CFG, figures_dir, series_dir, window
+from drought.viz import credit
 
 __all__ = ["figure", "load"]
 
@@ -65,11 +66,9 @@ def figure(site: str) -> dict:
                  f"DOY {lo}-{hi}, against {CFG.project.baseline_years[0]}-"
                  f"{CFG.project.baseline_years[-1]}", fontsize=11, fontweight="bold",
                  color="white", loc="left")
-    ax.set_xlabel("Sentinel-2, swissEO S2-SR (swisstopo); parcels: Nutzungsflächen, "
-                  "Kanton St.Gallen. Grey: no z-score.", fontsize=7, color="#6e7681",
-                  loc="left")
-    out = figures_dir(site) / f"anomaly_{CFG.anomaly.index}_{cur}.png"
-    fig.savefig(out, dpi=180, facecolor=fig.get_facecolor())
+    ax.set_xlabel("Grey: no z-score.", fontsize=7, color="#6e7681", loc="left")
+    out = credit.save(fig, figures_dir(site) / f"anomaly_{CFG.anomaly.index}_{cur}.png",
+                      "s2", "parcels")
     plt.close(fig)
     log.info("  -> %s", out)
     z = t.z.dropna()

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from drought.core.config import CFG, figures_dir, series_dir
+from drought.viz import credit
 
 __all__ = ["figure", "load"]
 
@@ -50,11 +51,10 @@ def figure(sites: list[str]) -> dict:
     axes[0][0].set_ylabel("VHI (swissEO)")
     axes[0][-1].legend(fontsize=7, loc="lower right")
     fig.suptitle(f"Vegetation Health Index on pure grassland cells, {cur}", fontsize=11)
-    fig.supxlabel("VHI: swissEO (swisstopo, MeteoSwiss). 0-100, low is stressed.",
-                  fontsize=7, color="#6e7681")
+    fig.supxlabel("VHI 0-100, low is stressed.", fontsize=7, color="#6e7681")
     fig.tight_layout()
     f = figures_dir() / f"vhi_{cur}.png"
-    fig.savefig(f, dpi=150)
+    credit.save(fig, f, "vhi", "parcels", dpi=150)
     plt.close(fig)
     log.info("  -> %s", f)
     return out

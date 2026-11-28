@@ -20,6 +20,7 @@ from drought.analysis.precip import (
 )
 from drought.core.config import CFG, figures_dir
 from drought.sources.meteoswiss import P_PRECIP, P_TMAX, P_TMEAN, P_TMIN
+from drought.viz import credit
 
 __all__ = ["figure"]
 
@@ -156,11 +157,8 @@ def figure(daily: pd.DataFrame, abbr: str, lat: float,
         log.info("Water balance to DOY %d: %.0f mm (median %.0f mm), rank %d",
                  n_days, s2[0], s2[1], s2[3])
 
-    # The credit is the x label (see viz.condition.figure).
-    axes[-1].set_xlabel("Data: MeteoSchweiz Open Data (SwissMetNet), CC-BY",
-                        loc="left", fontsize=7.5, color="#6e7681")
-    out = figures_dir("station") / f"precip_{abbr}_{CURRENT_YEAR}.png"
-    fig.savefig(out, dpi=200, facecolor=fig.get_facecolor())
+    out = credit.save(fig, figures_dir("station") / f"precip_{abbr}_{CURRENT_YEAR}.png",
+                      "meteo", dpi=200)
     log.info("  -> %s", out)
     plt.close(fig)
     res = {"end_doy": n_days, "precip_mm": st[0], "precip_median_mm": st[1],
